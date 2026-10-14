@@ -15,7 +15,8 @@ VPS `31.97.51.194`.
 | Build image lengkap di cloud | Belum lulus: ruang disk cloud tidak cukup; image lengkap wajib dibangun dan diuji oleh workflow sebelum deployment |
 | SSH ke VPS | Koneksi dari sesi ini ke `31.97.51.194:1506` ditolak; tidak ada private key administrator VPS yang tersedia |
 | API GitHub | Permintaan ditolak oleh proxy HTTP; daftar Secrets dan status Actions belum dapat diverifikasi |
-| Deployment VPS dan domain HTTPS | Belum dilakukan; domain lengkap serta provisioning receiver/Secrets masih diperlukan |
+| DNS domain | Resolver cloud gagal; record `lrmsosmed.playgo.id` belum dapat diverifikasi |
+| Deployment VPS dan domain HTTPS | Belum dilakukan; domain ditetapkan `lrmsosmed.playgo.id`, provisioning receiver/Secrets masih diperlukan |
 
 Pengujian akun menggunakan record sementara dengan token uji nonaktif, bukan
 OAuth atau penerbitan langsung ke platform sosial. Tidak ada DNS, Nginx Proxy

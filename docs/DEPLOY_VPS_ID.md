@@ -2,8 +2,8 @@
 
 Repository: `lrmcorp/lrmsocmedauto`, branch: `main`. Nama layanan dan direktori
 khusus: `lrmsosmed` dan `/opt/lrmsosmed`. VPS yang dituju adalah `31.97.51.194`,
-dengan port SSH terakhir diketahui `1506`. Domain lengkap perlu ditentukan;
-`lrmsosmed` sendiri adalah nama proyek, bukan domain lengkap.
+dengan port SSH terakhir diketahui `1506`. Domain proyek adalah
+`lrmsosmed.playgo.id`; DNS dan konfigurasi NPM perlu diperiksa di VPS.
 
 ## Cara kerja
 
@@ -53,7 +53,7 @@ dengan mengganti dua nilai contoh menggunakan hasil pemeriksaan:
 
 ```sh
 sudo python3 deploy/bootstrap.py \
-  --domain lrmsosmed.domainanda.com \
+  --domain lrmsosmed.playgo.id \
   --npm-network NAMA_JARINGAN_NPM \
   --ssh-port 1506
 ```
@@ -129,11 +129,12 @@ Tambahkan Variables berikut:
 
 | Variable | Isi |
 | --- | --- |
-| `PUBLIC_URL` | Domain HTTPS lengkap tanpa slash akhir, misalnya `https://lrmsosmed.domainanda.com` |
+| `PUBLIC_URL` | Opsional: `https://lrmsosmed.playgo.id` sudah menjadi nilai bawaan workflow; isi hanya jika alamat berubah |
 | `ENABLE_VPS_DEPLOY` | `true` setelah setup VPS, Secrets, DNS, dan NPM siap |
 
-Sebelum diaktifkan, workflow tetap menjalankan pengujian menggunakan origin uji
-`https://lrmsosmed.invalid`; tidak mengirim deployment ke VPS. Kunci CCTV tidak
+Sebelum diaktifkan, workflow tetap menjalankan pengujian pada stack sementara
+dengan konfigurasi origin `https://lrmsosmed.playgo.id`. Deployment ke VPS hanya
+berjalan jika `ENABLE_VPS_DEPLOY=true`. Kunci CCTV tidak
 dipakai ulang. Kunci privat yang tersimpan sementara di VPS dapat diarsipkan
 secara aman setelah Secrets terbukti berfungsi; jangan menghapus public key.
 

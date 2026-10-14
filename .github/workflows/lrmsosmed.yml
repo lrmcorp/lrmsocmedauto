@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 60
     env:
       IMAGE_TAG: ${{ github.sha }}
-      PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://lrmsosmed.invalid' }}
+      PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://lrmsosmed.playgo.id' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -88,7 +88,6 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
-          [[ "$PUBLIC_URL" != 'https://lrmsosmed.invalid' ]] || { echo 'Set repository variable PUBLIC_URL before enabling deployment.'; exit 1; }
           bash deploy/ssh-client.sh deploy "$IMAGE_TAG"
           echo "VPS receiver confirmed deployment of $IMAGE_TAG." >> "$GITHUB_STEP_SUMMARY"
       - name: Verify the public HTTPS application
