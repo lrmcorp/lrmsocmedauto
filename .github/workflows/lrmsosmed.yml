@@ -91,11 +91,15 @@ jobs:
           bash deploy/ssh-client.sh deploy "$IMAGE_TAG"
           echo "VPS receiver confirmed deployment of $IMAGE_TAG." >> "$GITHUB_STEP_SUMMARY"
       - name: Verify the public HTTPS application
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true' && vars.VERIFY_PUBLIC_HTTPS != 'false'
         run: |
           docker run --rm --entrypoint node -e PUBLIC_URL="$PUBLIC_URL" \
             "lrmsosmed:$IMAGE_TAG" /app/deploy/check-public.cjs
           echo "Public HTTPS health, channel catalog, and LRM login page verified." >> "$GITHUB_STEP_SUMMARY"
+      - name: Report public HTTPS verification pending
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true' && vars.VERIFY_PUBLIC_HTTPS == 'false'
+        run: |
+          echo 'VPS deployment passed its internal health checks. Public DNS, TLS, and browser access remain UNVERIFIED. Set VERIFY_PUBLIC_HTTPS=true and run this workflow after DNS and the NPM certificate are ready.' >> "$GITHUB_STEP_SUMMARY"
       - name: Report deployment not activated
         if: github.event_name != 'pull_request' && vars.ENABLE_VPS_DEPLOY != 'true'
         run: echo 'Tests completed; VPS deployment is not activated. Configure the project VPS and secrets, then set ENABLE_VPS_DEPLOY=true.' >> "$GITHUB_STEP_SUMMARY"

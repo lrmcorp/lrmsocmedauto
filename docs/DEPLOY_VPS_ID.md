@@ -130,7 +130,8 @@ Tambahkan Variables berikut:
 | Variable | Isi |
 | --- | --- |
 | `PUBLIC_URL` | Opsional: `https://lrmsosmed.playgo.id` sudah menjadi nilai bawaan workflow; isi hanya jika alamat berubah |
-| `ENABLE_VPS_DEPLOY` | `true` setelah setup VPS, Secrets, DNS, dan NPM siap |
+| `ENABLE_VPS_DEPLOY` | `true` setelah receiver VPS, Secrets, dan jaringan NPM siap |
+| `VERIFY_PUBLIC_HTTPS` | Bawaan aktif. Set `false` hanya saat menyiapkan aplikasi sebelum DNS/sertifikat tersedia; ubah ke `true` setelah DNS dan SSL siap |
 
 Sebelum diaktifkan, workflow tetap menjalankan pengujian pada stack sementara
 dengan konfigurasi origin `https://lrmsosmed.playgo.id`. Deployment ke VPS hanya
@@ -220,3 +221,16 @@ retensi dan salinan di luar VPS sesuai kapasitas, tanpa menyentuh data CCTV.
 
 Workflow upstream diarsipkan dalam `docs/upstream-ci/` agar jadwal dan rilis
 Postiz tidak dijalankan pada repository LRM.
+
+## Menjalankan aplikasi sebelum DNS tersedia
+
+Set `ENABLE_VPS_DEPLOY=true` dan `VERIFY_PUBLIC_HTTPS=false` pada repository
+Variables, lalu jalankan workflow secara manual. Build dan pengujian tetap wajib
+lulus; receiver tetap memeriksa kesehatan aplikasi pada VPS. Hanya pemeriksaan
+HTTPS publik yang ditunda dan ditandai UNVERIFIED pada ringkasan workflow.
+Port host tetap `127.0.0.1`, tanpa membuka port publik atau mengubah DNS.
+Koneksi OAuth Instagram belum dapat diuji sebelum HTTPS tersedia.
+
+Setelah DNS siap, minta sertifikat untuk domain ini melalui NPM, aktifkan Force
+SSL, ubah `VERIFY_PUBLIC_HTTPS=true`, lalu jalankan workflow kembali. Keberhasilan
+internal tidak membuktikan HTTPS atau akses browser publik berhasil.
