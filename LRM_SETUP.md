@@ -69,7 +69,38 @@ In the Codex cloud runner, add `-f docker-compose.cloud.yaml` to that command;
 it keeps Temporal's private container traffic off the runner's outbound proxy.
 Set `DATABASE_URL`, `REDIS_URL`, `TEMPORAL_ADDRESS`, `JWT_SECRET`, `FRONTEND_URL`,
 and `NEXT_PUBLIC_BACKEND_URL` in the ignored `.env` file using `.env.example`
-as the reference. Run `pnpm install --frozen-lockfile`, `pnpm run prisma-db-push`,
+as the reference. For local HTTP development, set `NOT_SECURED=true`; omit this
+setting on the VPS with HTTPS. Set `DISABLE_REGISTRATION=true` to allow the first
+organization and prevent further public registrations. Set
+`NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY=/uploads` and `UPLOAD_DIRECTORY` to an
+ignored local directory such as `/workspace/lrmsocmedauto/.uploads`.
+Run `pnpm install --frozen-lockfile`, `pnpm run prisma-db-push`,
 then `pnpm run dev-backend` and `pnpm run dev:orchestrator` in separate shells.
 The local site runs at `http://localhost:4200`; public HTTPS and approved apps
 are needed to exercise social OAuth and publishing.
+
+For a production source build outside Docker, load the root configuration into
+the build process:
+
+```sh
+pnpm exec dotenv -e .env -- pnpm run build
+```
+
+The worker readiness endpoint is `http://localhost:3002/health/status`. A 200
+response with `{"status":"ok"}` verifies its connection to the Temporal namespace.
+
+## Validation completed
+
+The cloud instance completed a frozen dependency installation, Prisma client
+generation, database setup, and production builds of the frontend, backend, and
+scheduling worker. Local functional checks passed for the restricted channel
+catalog, first-user registration, valid and invalid login, closing subsequent
+registration, authenticated calendar APIs, and media upload and download. Login,
+calendar, and media pages rendered with LRM branding. Two disposable account
+records per network were returned independently by the account API; all test
+users, account records, and media were removed afterward.
+
+These checks validate the local application. Live OAuth, publishing, and social
+analytics still require the VPS HTTPS address, platform app credentials, and the
+appropriate platform permissions. A VPS deployment and Docker image build have
+not yet been verified.

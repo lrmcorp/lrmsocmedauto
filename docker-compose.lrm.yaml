@@ -13,6 +13,7 @@ services:
       NEXT_PUBLIC_BACKEND_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.lrm}/api
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.lrm}
       DISABLE_REGISTRATION: 'true'
+      NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY: '/uploads'
       DATABASE_URL: postgresql://postiz-user:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.lrm}@postiz-postgres:5432/postiz-db-local
       FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
       FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
