@@ -1,6 +1,7 @@
 services:
   postiz:
     image: lrm/social-studio:local
+    command: [bash, -c, 'pnpm exec prisma db push --schema /app/libraries/nestjs-libraries/src/database/prisma/schema.prisma && exec bash /app/deploy/start.sh']
     build:
       context: .
       dockerfile: Dockerfile.lrm

@@ -7,6 +7,9 @@ tmp
 .env
 .env.lrm
 .uploads/
+deploy/.env
+deploy/__pycache__/
+deploy/tests/__pycache__/
 .apple
 # dependencies
 node_modules

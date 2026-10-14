@@ -1,0 +1,102 @@
+name: LRMSosmed - Test and Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lrmsosmed-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+      PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://lrmsosmed.invalid' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate configuration and restricted receiver
+        run: |
+          python3 -m unittest discover -s deploy/tests -v
+          bash -n deploy/start.sh deploy/ssh-entry.sh deploy/ssh-client.sh deploy/inventory.sh
+          python3 - <<'PY'
+          import os, re
+          from urllib.parse import urlparse
+          url = urlparse(os.environ['PUBLIC_URL'])
+          if url.scheme != 'https' or not url.hostname or url.username or url.password or url.path not in ('', '/') or url.query or url.fragment:
+              raise SystemExit('PUBLIC_URL must be a public HTTPS origin without credentials, paths, or query parameters')
+          if not re.fullmatch(r'[A-Za-z0-9.-]+', url.netloc) or not re.fullmatch(r'https://[A-Za-z0-9.-]+', os.environ['PUBLIC_URL']):
+              raise SystemExit('PUBLIC_URL must contain only the HTTPS hostname, without a trailing slash')
+          PY
+      - name: Build the immutable application image
+        run: |
+          docker build -f Dockerfile.lrm \
+            --build-arg PUBLIC_URL="$PUBLIC_URL" --build-arg VCS_REF="$IMAGE_TAG" \
+            -t "lrmsosmed:$IMAGE_TAG" .
+      - name: Release build cache on this disposable GitHub runner
+        run: docker builder prune --all --force
+      - name: Prepare isolated test configuration
+        run: |
+          mkdir -p "$RUNNER_TEMP/lrmsosmed-ci"
+          export CI_ENV_FILE="$RUNNER_TEMP/lrmsosmed-ci/.env"
+          python3 - <<'PY'
+          import os, secrets
+          from pathlib import Path
+          p = Path(os.environ['CI_ENV_FILE'])
+          p.write_text('\n'.join([
+              'PUBLIC_URL=' + os.environ['PUBLIC_URL'], 'APP_PORT=4007',
+              'NPM_NETWORK=lrmsosmed-ci-proxy',
+              'JWT_SECRET=' + secrets.token_hex(32),
+              'POSTGRES_PASSWORD=' + secrets.token_hex(24),
+              'TEMPORAL_POSTGRES_PASSWORD=' + secrets.token_hex(24), '',
+          ]))
+          p.chmod(0o600)
+          PY
+          echo "CI_ENV_FILE=$CI_ENV_FILE" >> "$GITHUB_ENV"
+      - name: Start the isolated application and test real requests
+        run: |
+          docker compose -p lrmsosmed-ci --env-file "$CI_ENV_FILE" \
+            -f deploy/compose.yaml -f deploy/ci.compose.yaml \
+            up -d --wait --wait-timeout 360
+          docker compose -p lrmsosmed-ci --env-file "$CI_ENV_FILE" \
+            -f deploy/compose.yaml -f deploy/ci.compose.yaml \
+            exec -T app node /app/deploy/smoke.cjs
+          echo 'Build and local application tests passed.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove only the disposable CI services and volumes
+        if: always()
+        run: |
+          if [[ -f "${CI_ENV_FILE:-}" ]]; then
+            docker compose -p lrmsosmed-ci --env-file "$CI_ENV_FILE" \
+              -f deploy/compose.yaml -f deploy/ci.compose.yaml down -v --remove-orphans
+          fi
+      - name: Deploy to the dedicated VPS receiver
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          [[ "$PUBLIC_URL" != 'https://lrmsosmed.invalid' ]] || { echo 'Set repository variable PUBLIC_URL before enabling deployment.'; exit 1; }
+          bash deploy/ssh-client.sh deploy "$IMAGE_TAG"
+          echo "VPS receiver confirmed deployment of $IMAGE_TAG." >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify the public HTTPS application
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
+        run: |
+          docker run --rm --entrypoint node -e PUBLIC_URL="$PUBLIC_URL" \
+            "lrmsosmed:$IMAGE_TAG" /app/deploy/check-public.cjs
+          echo "Public HTTPS health, channel catalog, and LRM login page verified." >> "$GITHUB_STEP_SUMMARY"
+      - name: Report deployment not activated
+        if: github.event_name != 'pull_request' && vars.ENABLE_VPS_DEPLOY != 'true'
+        run: echo 'Tests completed; VPS deployment is not activated. Configure the project VPS and secrets, then set ENABLE_VPS_DEPLOY=true.' >> "$GITHUB_STEP_SUMMARY"

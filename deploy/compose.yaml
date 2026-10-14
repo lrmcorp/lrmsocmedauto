@@ -1,0 +1,121 @@
+name: lrmsosmed
+services:
+  app:
+    image: lrmsosmed:${IMAGE_TAG:?IMAGE_TAG is required}
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MAIN_URL: ${PUBLIC_URL:?PUBLIC_URL is required}
+      FRONTEND_URL: ${PUBLIC_URL:?PUBLIC_URL is required}
+      NEXT_PUBLIC_BACKEND_URL: ${PUBLIC_URL}/api
+      BACKEND_INTERNAL_URL: http://127.0.0.1:3000
+      DATABASE_URL: postgresql://lrmsosmed:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/lrmsosmed
+      REDIS_URL: redis://redis:6379
+      TEMPORAL_ADDRESS: temporal:7233
+      STORAGE_PROVIDER: local
+      UPLOAD_DIRECTORY: /uploads
+      NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY: /uploads
+      IS_GENERAL: 'true'
+      DISABLE_REGISTRATION: 'true'
+    ports:
+      - 127.0.0.1:${APP_PORT:?APP_PORT is required}:5000
+    volumes:
+      - ./uploads:/uploads
+    networks:
+      backend:
+      proxy:
+        aliases: [lrmsosmed-app]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, /app/deploy/health.cjs]
+      interval: 15s
+      timeout: 15s
+      start_period: 90s
+      retries: 12
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lrmsosmed
+      POSTGRES_DB: lrmsosmed
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U lrmsosmed -d lrmsosmed]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - redis:/data
+    networks: [backend]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  temporal-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_POSTGRES_PASSWORD:?TEMPORAL_POSTGRES_PASSWORD is required}
+    volumes:
+      - temporal-postgres:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U temporal]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  temporal:
+    image: temporalio/auto-setup:1.28.1
+    restart: unless-stopped
+    environment:
+      DB: postgres12
+      DB_PORT: '5432'
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_POSTGRES_PASSWORD}
+      POSTGRES_SEEDS: temporal-postgres
+      ENABLE_ES: 'false'
+      SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES: 'true'
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      # Temporal has only private dependencies; inherited HTTP proxies must
+      # not intercept its internal gRPC and database connections.
+      HTTP_PROXY: ''
+      HTTPS_PROXY: ''
+      http_proxy: ''
+      https_proxy: ''
+    networks: [backend]
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, 'temporal:7233']
+      interval: 10s
+      timeout: 10s
+      start_period: 60s
+      retries: 30
+volumes:
+  postgres:
+  redis:
+  temporal-postgres:
+networks:
+  backend:
+    internal: true
+  proxy:
+    external: true
+    name: ${NPM_NETWORK:?Use the verified Nginx Proxy Manager Docker network}

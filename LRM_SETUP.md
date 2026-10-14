@@ -16,6 +16,10 @@ the components in `apps/frontend/src/components/new-layout/logo.tsx` and
 
 ## VPS setup
 
+Untuk VPS bersama dengan Nginx Proxy Manager dan deployment otomatis, gunakan
+[panduan deployment Bahasa Indonesia](docs/DEPLOY_VPS_ID.md) dan stack khusus
+`deploy/compose.yaml`. Stack ini terpisah dari contoh Compose upstream di bawah.
+
 Use a VPS with Docker Compose and enough disk and memory to build the Postiz
 monorepo and run PostgreSQL, Redis, Temporal, and Elasticsearch. Point a public
 HTTPS hostname to a reverse proxy on the VPS; forward it to port 4007. The
