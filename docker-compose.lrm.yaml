@@ -1,0 +1,36 @@
+services:
+  postiz:
+    image: lrm/social-studio:local
+    build:
+      context: .
+      dockerfile: Dockerfile.lrm
+      args:
+        PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.lrm}
+    env_file: .env.lrm
+    environment:
+      MAIN_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.lrm}
+      FRONTEND_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.lrm}
+      NEXT_PUBLIC_BACKEND_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.lrm}/api
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.lrm}
+      DATABASE_URL: postgresql://postiz-user:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.lrm}@postiz-postgres:5432/postiz-db-local
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      INSTAGRAM_APP_ID: ${INSTAGRAM_APP_ID:-}
+      INSTAGRAM_APP_SECRET: ${INSTAGRAM_APP_SECRET:-}
+      THREADS_APP_ID: ${THREADS_APP_ID:-}
+      THREADS_APP_SECRET: ${THREADS_APP_SECRET:-}
+      TIKTOK_CLIENT_ID: ${TIKTOK_CLIENT_ID:-}
+      TIKTOK_CLIENT_SECRET: ${TIKTOK_CLIENT_SECRET:-}
+      TIKTOK_BUSINESS_CLIENT_ID: ${TIKTOK_BUSINESS_CLIENT_ID:-}
+      TIKTOK_BUSINESS_CLIENT_SECRET: ${TIKTOK_BUSINESS_CLIENT_SECRET:-}
+  postiz-postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.lrm}
+  temporal-postgresql:
+    environment:
+      POSTGRES_PASSWORD: ${TEMPORAL_POSTGRES_PASSWORD:?Set TEMPORAL_POSTGRES_PASSWORD in .env.lrm}
+  temporal:
+    environment:
+      POSTGRES_PWD: ${TEMPORAL_POSTGRES_PASSWORD:?Set TEMPORAL_POSTGRES_PASSWORD in .env.lrm}
+      NO_PROXY: temporal-elasticsearch,temporal-postgresql,localhost,127.0.0.1
+      no_proxy: temporal-elasticsearch,temporal-postgresql,localhost,127.0.0.1

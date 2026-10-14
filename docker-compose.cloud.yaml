@@ -1,0 +1,11 @@
+# The cloud runner injects an outbound HTTP proxy into containers. Bypass it
+# only for the private Compose network where Temporal reaches Elasticsearch.
+services:
+  temporal:
+    environment:
+      NO_PROXY: temporal-elasticsearch,temporal-postgresql,temporal,localhost,127.0.0.1,172.18.0.0/16
+      no_proxy: temporal-elasticsearch,temporal-postgresql,temporal,localhost,127.0.0.1,172.18.0.0/16
+      HTTP_PROXY: ''
+      HTTPS_PROXY: ''
+      http_proxy: ''
+      https_proxy: ''
