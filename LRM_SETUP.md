@@ -41,8 +41,10 @@ frontend.
 
 4. Check `https://your-host/auth/login`, create the first user, and connect
    accounts from **Add Channel**. Verify an Instagram post in the calendar
-   before using scheduled publishing. Keep the VPS, database, and uploads
-   backed up.
+   before using scheduled publishing. New registrations are disabled after
+   the first organization is created. Keep the VPS, database, and uploads
+   backed up. Add LRM Corporation's own terms and privacy pages before opening
+   registration to others.
 
 The callback URLs are based on `PUBLIC_URL`:
 
@@ -57,7 +59,7 @@ The callback URLs are based on `PUBLIC_URL`:
 If `PUBLIC_URL` changes, rebuild the app because the frontend receives its
 public backend URL during the build. On a new host, `docker compose` pulls
 upstream service images and the build fetches verified Prisma engines from
-`binaries.prisma.sh`.
+`binaries.prisma.sh` and Plus Jakarta Sans from Google Fonts.
 
 ## Local source development
 
