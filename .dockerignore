@@ -19,5 +19,9 @@ dist
 **/npm-debug.log
 **/*.vscode
 .git
+.env*
+**/.env*
+.secrets/
+.uploads/
 .github
 reports
