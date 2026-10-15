@@ -234,3 +234,18 @@ Koneksi OAuth Instagram belum dapat diuji sebelum HTTPS tersedia.
 Setelah DNS siap, minta sertifikat untuk domain ini melalui NPM, aktifkan Force
 SSL, ubah `VERIFY_PUBLIC_HTTPS=true`, lalu jalankan workflow kembali. Keberhasilan
 internal tidak membuktikan HTTPS atau akses browser publik berhasil.
+
+## Transfer lambat dan batas waktu
+
+Workflow dibatasi 180 menit untuk mencakup build, pengujian, transfer, dan startup.
+Sebelum mengirim image, client memeriksa akses receiver dengan operasi `status`.
+Client mencetak ukuran image tanpa kompresi, memakai gzip level 9, dan menampilkan
+jumlah MiB yang diteruskan serta kecepatan rata-rata sekitar setiap 30 detik.
+Angka ukuran image awal bukan ukuran archive terkompresi; total terkompresi baru
+diketahui setelah stream selesai. Selesainya transfer belum berarti deployment
+berhasil: receiver masih memuat image, menjalankan layanan, dan memeriksa health.
+
+Jika workflow dibatalkan di tengah transfer, receiver membersihkan archive
+sementara dan tidak mencatat image sebagai deployment berhasil. Jangan menghapus
+file atau menjalankan deployment kedua selama receiver masih aktif. Gunakan
+`/usr/local/sbin/lrmsosmed-receiver status` untuk memeriksa hasil akhir.

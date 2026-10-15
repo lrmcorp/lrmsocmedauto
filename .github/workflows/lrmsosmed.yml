@@ -17,7 +17,7 @@ concurrency:
 jobs:
   test-and-deploy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 180
     env:
       IMAGE_TAG: ${{ github.sha }}
       PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://lrmsosmed.playgo.id' }}

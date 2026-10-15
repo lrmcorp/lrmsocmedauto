@@ -27,7 +27,11 @@ ssh_options=(-F /dev/null -i "$directory/key" -p "$VPS_PORT" -o BatchMode=yes
   -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$directory/known_hosts"
   -o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 -T)
 if [[ "$mode" == deploy ]]; then
-  docker save "lrmsosmed:$tag" | gzip -1 | ssh "${ssh_options[@]}" "$VPS_USER@$VPS_HOST" "deploy $tag"
+  ssh "${ssh_options[@]}" "$VPS_USER@$VPS_HOST" status < /dev/null
+  docker image inspect --format 'Uncompressed application image: {{.Size}} bytes' "lrmsosmed:$tag"
+  printf 'Compressing image with gzip -9; stream progress follows every 30 seconds.\n'
+  docker save "lrmsosmed:$tag" | gzip -9 | python3 "$(dirname "$0")/transfer-progress.py" \
+    | ssh "${ssh_options[@]}" "$VPS_USER@$VPS_HOST" "deploy $tag"
 elif [[ "$mode" == rollback ]]; then
   ssh "${ssh_options[@]}" "$VPS_USER@$VPS_HOST" "rollback $tag" < /dev/null
 else
