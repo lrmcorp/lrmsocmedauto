@@ -25,7 +25,7 @@ module.exports = async function studioSmoke({
     });
     assert.ok(
       [expected, ...(expected === 200 ? [201] : [])].includes(response.status),
-      `Studio ${method} ${path} format=${body?.postType || "default"}: ${response.status}`
+      `Studio ${method} ${path} format=${body?.postType || "default"}: expected ${expected}, received ${response.status}`
     );
     return response.json().catch(() => ({}));
   }
@@ -308,7 +308,9 @@ module.exports = async function studioSmoke({
       permissions: [],
       disabled: true,
     });
-    await request('/me', memberHeaders[0], 'GET', undefined, 403);
+    // AuthMiddleware invalidates the session when no active membership remains;
+    // the production HttpExceptionFilter returns 401 and clears its cookie.
+    await request('/me', memberHeaders[0], 'GET', undefined, 401);
     return 'scoped members: username login, account isolation, action permissions, encrypted personal keys, owner protection, immediate revocation';
   } finally {
     await db.studioCredential.deleteMany({

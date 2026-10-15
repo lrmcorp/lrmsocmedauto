@@ -20,6 +20,7 @@ const { AuthController } = back('api/routes/auth.controller.js');
 const { UsersController } = back('api/routes/users.controller.js');
 const { AuthService } = back('services/auth/auth.service.js');
 const { AuthMiddleware } = back('services/auth/auth.middleware.js');
+const { HttpExceptionFilter } = lib('services/exception.filter.js');
 const { PoliciesGuard } = back(
   'services/auth/permissions/permissions.guard.js'
 );
@@ -157,7 +158,9 @@ let db, app, orgId, ownerId;
       ? next()
       : middleware
           .use(req, res, next)
-          .catch(() => res.status(403).json({ message: 'Forbidden' }))
+          .catch((error) => new HttpExceptionFilter().catch(error, {
+            switchToHttp: () => ({ getResponse: () => res }),
+          }))
   );
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   app.useGlobalGuards(new PoliciesGuard(new Reflector(), {}));
