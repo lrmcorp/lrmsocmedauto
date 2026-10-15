@@ -214,6 +214,7 @@ model Star {
 }
 
 model Media {
+  studioOwnerId      String?
   id                 String              @id @default(uuid())
   name               String
   originalName       String?
@@ -456,6 +457,8 @@ model Comments {
 }
 
 model Post {
+  studioAuthorId             String?
+  studioAction               String?
   id                         String                    @id @default(cuid())
   state                      State                     @default(QUEUE)
   publishDate                DateTime
@@ -510,6 +513,21 @@ model Post {
   @@index([updatedAt])
   @@index([releaseURL])
   @@index([integrationId])
+}
+
+model StudioAccess {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String
+  accounts       String[] @default([])
+  permissions    String[] @default([])
+  @@unique([userId, organizationId])
+}
+
+model StudioCredential {
+  userId    String @id
+  encrypted String
+  updatedAt DateTime @updatedAt
 }
 
 model Notifications {

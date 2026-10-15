@@ -5,6 +5,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { PostsRepository } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.repository';
+import { StudioAccessService } from '../studio-access.service';
 import { CreatePostDto } from '@gitroom/nestjs-libraries/dtos/posts/create.post.dto';
 import dayjs from 'dayjs';
 import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
@@ -74,8 +75,13 @@ export class PostsService {
     private _shortLinkService: ShortLinkService,
     private _openaiService: OpenaiService,
     private _temporalService: TemporalService,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    private _studioAccess: StudioAccessService
   ) {}
+
+  assertStudioPublishing(orgId: string, ids: string[]) {
+    return this._studioAccess.assertPublishing(orgId, ids);
+  }
 
   searchForMissingThreeHoursPosts() {
     return this._postRepository.searchForMissingThreeHoursPosts();
@@ -1102,7 +1108,8 @@ export class PostsService {
     orgId: string,
     body: CreatePostDto,
     creationMethod: CreationMethod,
-    keepGroup = false
+    keepGroup = false,
+    studioActor?: { userId: string; action: string }
   ): Promise<any[]> {
     const postList = [];
     const batchId = uuidv4();
@@ -1156,6 +1163,11 @@ export class PostsService {
       }
 
       const existingIds = (post.value || []).map((p) => p.id).filter(Boolean);
+      // Stamp before starting the workflow; even an immediate publish must
+      // have an author whose current permission can be rechecked by the worker.
+      if (studioActor) {
+        await this._postRepository.stampStudioAuthor(posts.map(p => p.id), studioActor.userId, studioActor.action);
+      }
       await this.detachStaleAnchors(
         posts.filter((p) => existingIds.includes(p.id))
       );

@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   AppAbility,
@@ -21,6 +21,15 @@ export class PoliciesGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request: Request = context.switchToHttp().getRequest();
+    // Members use the scoped studio API. Legacy APIs include workspace-wide
+    // exports, tokens, generators and account mutations and must not bypass it.
+    const actor = (request as any).user;
+    const workspace = (request as any).org;
+    const path = request.path.replace(/\/$/, '');
+    if (actor && workspace && workspace.users?.[0]?.role !== 'SUPERADMIN' &&
+        path !== '/user/self' && path !== '/studio' && !path.startsWith('/studio/')) {
+      throw new ForbiddenException('Gunakan studio internal untuk akses akun yang ditugaskan.');
+    }
     if (
       request.path.indexOf('/auth') > -1 ||
       request.path.indexOf('/auth') > -1 ||

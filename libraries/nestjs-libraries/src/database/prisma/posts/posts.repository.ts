@@ -24,6 +24,9 @@ dayjs.extend(utc);
 
 @Injectable()
 export class PostsRepository {
+  async stampStudioAuthor(ids: string[], userId: string, action: string) {
+    await this._post.model.post.updateMany({ where: { id: { in: ids } }, data: { studioAuthorId: userId, studioAction: action } });
+  }
   constructor(
     private _post: PrismaRepository<'post'>,
     private _popularPosts: PrismaRepository<'popularPosts'>,

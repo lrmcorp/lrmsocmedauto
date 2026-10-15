@@ -326,6 +326,7 @@ export class PostActivity {
     posts: Post[],
     allowPending: boolean
   ) {
+    await this._postService.assertStudioPublishing(integration.organizationId, posts.map(p => p.id));
     // Stage markers: whatever ran last is what a timed-out activity reports.
     // Providers that go through this.fetch overwrite these with the exact URL;
     // the ones on their own HTTP client (x, youtube, bluesky) are still
@@ -374,6 +375,7 @@ export class PostActivity {
     );
 
     setHeartbeatDetails(`${integration.providerIdentifier}: publish`);
+    await this._postService.assertStudioPublishing(integration.organizationId, posts.map(p => p.id));
     const postNow =
       allowPending && getIntegration.postPending
         ? await getIntegration.postPending(
@@ -412,7 +414,9 @@ export class PostActivity {
       /**empty**/
     }
 
-    return postNow;
+    return postNow.map(result => result.pendingData && posts.some(p => p.studioAuthorId) ? {
+      ...result, pendingData: { ...result.pendingData, __lrmPostIds: posts.map(p => p.id) },
+    } : result);
   }
 
   @ActivityMethod()
@@ -421,22 +425,33 @@ export class PostActivity {
       integration.providerIdentifier
     );
 
-    return this.handleDisconnect(integration, () =>
-      getIntegration.checkPostStatus(integration.token, pendingData, integration)
+    const { __lrmPostIds, ...providerData } = pendingData;
+    const result = await this.handleDisconnect(integration, () =>
+      getIntegration.checkPostStatus(integration.token, __lrmPostIds ? providerData : pendingData, integration)
     );
+    return 'pendingData' in result && result.pendingData && pendingData.__lrmPostIds ? {
+      ...result, pendingData: { ...result.pendingData, __lrmPostIds: pendingData.__lrmPostIds },
+    } : result;
   }
 
   @ActivityMethod()
   async finalizePost(integration: Integration, pendingData: any) {
+    if (pendingData.__lrmPostIds) {
+      await this._postService.assertStudioPublishing(integration.organizationId, pendingData.__lrmPostIds);
+    }
     const getIntegration = this._integrationManager.getSocialIntegration(
       integration.providerIdentifier
     );
+    const { __lrmPostIds, ...providerData } = pendingData;
 
-    return withHeartbeat(() =>
+    const result = await withHeartbeat(() =>
       this.handleDisconnect(integration, () =>
-        getIntegration.finalizePost(integration.token, pendingData, integration)
+        getIntegration.finalizePost(integration.token, __lrmPostIds ? providerData : pendingData, integration)
       )
     );
+    return 'pendingData' in result && result.pendingData && __lrmPostIds ? {
+      ...result, pendingData: { ...result.pendingData, __lrmPostIds },
+    } : result;
   }
 
   @ActivityMethod()

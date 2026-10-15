@@ -132,9 +132,7 @@ export class UsersController {
       streakSince: organization?.streakSince || null,
       publicApi:
         // @ts-ignore
-        organization?.users[0]?.role === 'SUPERADMIN' ||
-        // @ts-ignore
-        organization?.users[0]?.role === 'ADMIN'
+        organization?.users[0]?.role === 'SUPERADMIN'
           ? organization?.apiKey
           : '',
     };

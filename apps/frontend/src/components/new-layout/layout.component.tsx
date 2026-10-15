@@ -15,7 +15,7 @@ import clsx from 'clsx';
 import dynamic from 'next/dynamic';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { CheckPayment } from '@gitroom/frontend/components/layout/check.payment';
 import { ToolTip } from '@gitroom/frontend/components/layout/top.tip';
@@ -46,6 +46,7 @@ import { TrialTracker } from '@gitroom/frontend/components/layout/gtm.component'
 import { setSentryUser } from '@gitroom/react/sentry/initialize.sentry.client';
 
 export const LayoutComponent = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
   const fetch = useFetch();
 
   const { backendUrl, billingEnabled, isGeneral } = useVariables();
@@ -67,6 +68,9 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
     refreshWhenOffline: false,
     refreshWhenHidden: false,
   });
+  useEffect(() => {
+    if (user?.role && user.role !== 'SUPERADMIN') router.replace('/studio');
+  }, [user?.role, router]);
 
   useEffect(() => {
     setSentryUser(
@@ -74,7 +78,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
     );
   }, [user]);
 
-  if (!user) return null;
+  if (!user || user.role !== 'SUPERADMIN') return null;
 
   return (
     <ContextWrapper user={user}>

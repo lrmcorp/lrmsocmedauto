@@ -76,6 +76,7 @@ async function json(url, options = {}) {
   assert.equal(accounts.length, 6); assert.equal(new Set(accounts.map(p => p.id)).size, 6);
   for (const provider of ['instagram', 'tiktok', 'threads']) assert.equal(accounts.filter(p => p.identifier === provider).length, 2);
   passed.push('two independent account records per network');
+  passed.push(await require('./tests/studio-smoke.cjs')({ db, api, cookie, orgId, userId }));
   await json(`${api}/posts/list?state=all`, { headers });
   passed.push('authenticated calendar API');
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jN+8AAAAASUVORK5CYII=', 'base64');
@@ -88,7 +89,7 @@ async function json(url, options = {}) {
   assert.equal(download.status, 200); assert.match(download.headers.get('Content-Type'), /image\/png/);
   assert.deepEqual(Buffer.from(await download.arrayBuffer()), png);
   passed.push('media persistence and public download');
-  for (const route of ['/auth/login', '/launches', '/media']) {
+  for (const route of ['/auth/login', '/launches', '/media', '/studio']) {
     const page = await fetch(`${base}${route}`, { headers }); assert.equal(page.status, 200);
     assert.match(await page.text(), /LRM Corporation/);
   }

@@ -1,48 +1,48 @@
 // Vant-inspired visual language for the existing React application.
 // Deliberately scoped so embedded social post previews keep their own branding.
 body.lrm-ui:is(.light, .dark) {
-  --lrm-accent: #1989fa;
-  --lrm-accent-soft: #edf6ff;
+  --lrm-accent: #137d59;
+  --lrm-accent-soft: #effaf4;
   --lrm-radius: 16px;
-  --color-forth: #1989fa;
-  --color-seventh: #0570da;
-  --color-custom4: #1989fa;
-  --color-custom7: #1989fa;
-  --color-custom50: #1989fa;
-  --color-custom51: #1989fa;
-  --new-btn-primary: #1989fa;
-  --new-table-text-focused: #1989fa;
+  --color-forth: #137d59;
+  --color-seventh: #096548;
+  --color-custom4: #137d59;
+  --color-custom7: #137d59;
+  --color-custom50: #137d59;
+  --color-custom51: #137d59;
+  --new-btn-primary: #137d59;
+  --new-table-text-focused: #137d59;
   -webkit-tap-highlight-color: transparent;
   color: var(--new-btn-text);
 
   &.light {
     color-scheme: light;
     --new-back-drop: #1c2940;
-    --new-bgColor: #f7f8fa;
+    --new-bgColor: #f7f9fb;
     --new-bgColorInner: #fff;
-    --new-bgLineColor: #ebedf0;
-    --new-border: #ebedf0;
+    --new-bgLineColor: #e2e9f2;
+    --new-border: #e2e9f2;
     --new-settings: #f2f3f5;
     --new-sep: #dcdee0;
     --new-textColor: 50 50 51;
-    --new-btn-text: #323233;
-    --new-textItemFocused: #0874df;
-    --new-textItemBlur: #70757e;
-    --new-boxFocused: #edf6ff;
+    --new-btn-text: #172033;
+    --new-textItemFocused: #137d59;
+    --new-textItemBlur: #7186a7;
+    --new-boxFocused: #effaf4;
     --new-btn-simple: #f2f3f5;
-    --new-box-hover: #f7f8fa;
-    --new-table-border: #ebedf0;
-    --new-table-header: #f7f8fa;
-    --new-table-text: #70757e;
-    --new-blockSeparator: #ebedf0;
-    --new-menu-hover: #1989fa;
-    --color-primary: #f7f8fa;
+    --new-box-hover: #f7f9fb;
+    --new-table-border: #e2e9f2;
+    --new-table-header: #f7f9fb;
+    --new-table-text: #7186a7;
+    --new-blockSeparator: #e2e9f2;
+    --new-menu-hover: #137d59;
+    --color-primary: #f7f9fb;
     --color-secondary: #fff;
     --color-third: #fff;
-    --color-text: #323233;
-    --color-gray: #70757e;
-    --color-input: #f7f8fa;
-    --color-table-border: #ebedf0;
+    --color-text: #172033;
+    --color-gray: #7186a7;
+    --color-input: #f7f9fb;
+    --color-table-border: #e2e9f2;
     --popup-color: rgba(28, 41, 64, 0.35);
     --menu-shadow: 0 8px 32px rgba(28, 41, 64, 0.09);
   }
@@ -124,7 +124,7 @@ body.lrm-ui:is(.light, .dark) {
     overflow: hidden;
     border-radius: 14px;
     background: #fff;
-    border: 1px solid #ebedf0;
+    border: 1px solid #e2e9f2;
   }
   .lrm-brand-wordmark {
     display: flex;

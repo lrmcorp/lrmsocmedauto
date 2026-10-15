@@ -56,8 +56,10 @@ import { FarcasterProvider } from '@gitroom/backend/services/auth/providers/farc
 import { WalletProvider } from '@gitroom/backend/services/auth/providers/wallet.provider';
 import { OauthProvider } from '@gitroom/backend/services/auth/providers/oauth.provider';
 import { StripeController } from '@gitroom/backend/api/routes/stripe.controller';
+import { StudioController } from './routes/studio.controller';
 
 const authenticatedController = [
+  StudioController,
   UsersController,
   AnalyticsController,
   IntegrationsController,

@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { StudioAccessService } from './studio-access.service';
 import { PrismaRepository, PrismaService, PrismaTransaction } from './prisma.service';
 import { OrganizationRepository } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.repository';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
@@ -56,6 +57,7 @@ import { AdminStatsService } from '@gitroom/nestjs-libraries/database/prisma/adm
   imports: [],
   controllers: [],
   providers: [
+    StudioAccessService,
     PrismaService,
     PrismaRepository,
     PrismaTransaction,
