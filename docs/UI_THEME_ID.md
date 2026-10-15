@@ -12,7 +12,7 @@ bawah pada layar kecil. Paket Vue `vant` tidak dipasang.
 - Navigasi ponsel: Calendar, Media, Analytics, Settings; menu samping tetap tersedia.
 - Tombol loading dinonaktifkan untuk mencegah submit berulang; input memiliki label,
   hubungan ke pesan error, dan indikator fokus keyboard.
-- Tanda teks LRM memakai aksen biru sambil menunggu logo resmi.
+- Logo resmi Liando Reyfort Management dipakai pada autentikasi, sidebar, dan ikon browser. Detail aset ada di `BRANDING_ID.md`.
 
 ## Pengaturan
 

@@ -13,10 +13,23 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <html>
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link
+          rel="icon"
+          href="/branding/lrm-icon-32.png"
+          type="image/png"
+          sizes="32x32"
+        />
+        <link
+          rel="apple-touch-icon"
+          href="/branding/lrm-icon-180.png"
+          sizes="180x180"
+        />
       </head>
       <body
-        className={clsx(jakartaSans.className, 'lrm-ui light text-primary !bg-primary')}
+        className={clsx(
+          jakartaSans.className,
+          'lrm-ui light text-primary !bg-primary'
+        )}
       >
         <VariableContextComponent
           language="en"

@@ -1,7 +1,11 @@
 import { SentryComponent } from '@gitroom/frontend/components/layout/sentry.component';
 
 export const dynamic = 'force-dynamic';
-export const viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 import '../global.scss';
 import 'react-tooltip/dist/react-tooltip.css';
 import '@copilotkit/react-ui/styles.css';
@@ -36,7 +40,17 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <html>
       <head>
-        <link rel="icon" href="/lrm-mark.svg" type="image/svg+xml" />
+        <link
+          rel="icon"
+          href="/branding/lrm-icon-32.png"
+          type="image/png"
+          sizes="32x32"
+        />
+        <link
+          rel="apple-touch-icon"
+          href="/branding/lrm-icon-180.png"
+          sizes="180x180"
+        />
         {!!process.env.DATAFAST_WEBSITE_ID && (
           <Script
             data-website-id={process.env.DATAFAST_WEBSITE_ID}
@@ -48,7 +62,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </head>
       <ChangeDirClient />
       <body
-        className={clsx(jakartaSans.className, 'lrm-ui text-primary !bg-primary', mode)}
+        className={clsx(
+          jakartaSans.className,
+          'lrm-ui text-primary !bg-primary',
+          mode
+        )}
       >
         <VariableContextComponent
           storageProvider={

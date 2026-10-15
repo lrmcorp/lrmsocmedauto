@@ -1,11 +1,18 @@
 'use client';
 
-// Text mark until the LRM Corporation logo is supplied.
+import Image from 'next/image';
+
 export const Logo = () => (
   <div
-    aria-label="LRM Corporation Social Studio"
-    className="mt-[8px] flex min-h-[60px] min-w-[60px] items-center justify-center rounded-[14px] bg-[#1989FA] text-[19px] font-bold tracking-[-0.06em] text-white"
+    className="lrm-brand-icon mt-[8px]"
+    aria-label="Liando Reyfort Management"
   >
-    LRM
+    <Image
+      src="/branding/lrm-icon-192.png"
+      alt="Liando Reyfort Management"
+      width={60}
+      height={60}
+      unoptimized
+    />
   </div>
 );

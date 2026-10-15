@@ -83,6 +83,13 @@ async function json(url, options = {}) {
     const page = await fetch(`${base}${route}`, { headers }); assert.equal(page.status, 200);
     assert.match(await page.text(), /LRM Corporation/);
   }
+  for (const asset of ['/branding/lrm-icon-32.png', '/branding/lrm-icon-192.png', '/branding/lrm-logo.webp', '/favicon.ico']) {
+    const response = await fetch(`${base}${asset}`);
+    assert.equal(response.status, 200);
+    assert.equal(response.redirected, false, 'Brand assets must not redirect to login');
+    assert.match(response.headers.get('Content-Type'), /^image\//);
+  }
+  passed.push('public official logo and browser icon assets');
   passed.push('branded application pages');
   console.log(JSON.stringify({ passed, checks: passed.length }));
 })().catch(error => {
