@@ -72,6 +72,18 @@ jobs:
             -f deploy/compose.yaml -f deploy/ci.compose.yaml \
             exec -T app node /app/deploy/smoke.cjs
           echo 'Build and local application tests passed.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Diagnose isolated application failure
+        if: failure() && env.CI_ENV_FILE != ''
+        run: |
+          docker compose -p lrmsosmed-ci --env-file "$CI_ENV_FILE" \
+            -f deploy/compose.yaml -f deploy/ci.compose.yaml ps -a
+          app_id=$(docker compose -p lrmsosmed-ci --env-file "$CI_ENV_FILE" \
+            -f deploy/compose.yaml -f deploy/ci.compose.yaml ps -aq app)
+          if [[ -n "$app_id" ]]; then
+            docker inspect --format 'State={{.State.Status}} OOMKilled={{.State.OOMKilled}} ExitCode={{.State.ExitCode}} Restarts={{.RestartCount}}' "$app_id"
+            docker stats --no-stream --format 'Name={{.Name}} Memory={{.MemUsage}} CPU={{.CPUPerc}}' "$app_id"
+            docker logs --tail 1000 "$app_id" 2>&1 | node deploy/diagnose-ci.cjs
+          fi
       - name: Remove only the disposable CI services and volumes
         if: always()
         run: |
