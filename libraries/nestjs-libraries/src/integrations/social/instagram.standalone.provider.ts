@@ -9,12 +9,42 @@ import dayjs from 'dayjs';
 import {
   SocialAbstract,
   ValidityMedia,
+  NotEnoughScopes,
 } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { InstagramDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/instagram.dto';
 import { InstagramProvider } from '@gitroom/nestjs-libraries/integrations/social/instagram.provider';
 import { META_GRAPH_API_VERSION } from '@gitroom/nestjs-libraries/integrations/social/facebook.provider';
 import { Integration } from '@prisma/client';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+
+// Meta responses may contain a comma/space-separated string or permission records.
+export function instagramGrantedScopes(value: unknown): string[] {
+  if (typeof value === 'string') {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(value.replace(/\+/g, ' '));
+    } catch {
+      return [];
+    }
+    return [...new Set(decoded.split(/[\s,]+/).filter(Boolean))];
+  }
+  if (Array.isArray(value)) {
+    return [
+      ...new Set(
+        value.flatMap((item) =>
+          typeof item === 'string'
+            ? instagramGrantedScopes(item)
+            : item &&
+              item.status === 'granted' &&
+              typeof item.permission === 'string'
+            ? instagramGrantedScopes(item.permission)
+            : []
+        )
+      ),
+    ];
+  }
+  return [];
+}
 
 const instagramProvider = new InstagramProvider();
 
@@ -35,7 +65,7 @@ export class InstagramStandaloneProvider
     'instagram_business_manage_comments',
     'instagram_business_manage_insights',
   ];
-    override maxConcurrentJob = 200; // Instagram standalone has stricter limits
+  override maxConcurrentJob = 200; // Instagram standalone has stricter limits
   dto = InstagramDto;
 
   editor = 'normal' as const;
@@ -109,7 +139,7 @@ export class InstagramStandaloneProvider
     const state = makeSecureId(6);
     return {
       url:
-        `https://www.instagram.com/oauth/authorize?enable_fb_login=0&client_id=${
+        `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${
           process.env.INSTAGRAM_APP_ID
         }&redirect_uri=${encodeURIComponent(
           `${
@@ -144,30 +174,69 @@ export class InstagramStandaloneProvider
     );
     formData.append('code', params.code);
 
-    const getAccessToken = await (
-      await fetch('https://api.instagram.com/oauth/access_token', {
-        method: 'POST',
-        body: formData,
-      })
-    ).json();
+    const getAccessToken = await this.instagramAuthResponse(
+      'https://api.instagram.com/oauth/access_token',
+      'code exchange',
+      { method: 'POST', body: formData }
+    );
+    if (
+      typeof getAccessToken.access_token !== 'string' ||
+      !getAccessToken.access_token
+    ) {
+      throw new NotEnoughScopes(
+        'Instagram did not issue an access token. Check the Instagram App ID, secret, and redirect URL, then reconnect.'
+      );
+    }
+    const exchanged = await this.instagramAuthResponse(
+      'https://graph.instagram.com/access_token' +
+        '?grant_type=ig_exchange_token' +
+        `&client_id=${process.env.INSTAGRAM_APP_ID}` +
+        `&client_secret=${process.env.INSTAGRAM_APP_SECRET}` +
+        `&access_token=${getAccessToken.access_token}`,
+      'long-lived token exchange'
+    );
+    const { access_token } = exchanged;
+    if (typeof access_token !== 'string' || !access_token) {
+      throw new NotEnoughScopes(
+        'Instagram did not issue a long-lived access token. Please reconnect the account.'
+      );
+    }
 
-    const { access_token, expires_in, ...all } = await (
-      await fetch(
-        'https://graph.instagram.com/access_token' +
-          '?grant_type=ig_exchange_token' +
-          `&client_id=${process.env.INSTAGRAM_APP_ID}` +
-          `&client_secret=${process.env.INSTAGRAM_APP_SECRET}` +
-          `&access_token=${getAccessToken.access_token}`
-      )
-    ).json();
+    let granted = instagramGrantedScopes(getAccessToken.permissions);
+    if (!this.scopes.every((scope) => granted.includes(scope))) {
+      // Verify the token's actual grants if the exchange omits or abbreviates them.
+      const permissions = await this.instagramAuthResponse(
+        `https://graph.instagram.com/${META_GRAPH_API_VERSION}/me/permissions?access_token=${encodeURIComponent(
+          access_token
+        )}`,
+        'permission verification'
+      );
+      if (!Array.isArray(permissions.data)) {
+        throw new NotEnoughScopes(
+          'Instagram did not return a usable permissions list. Reconnect Instagram Standalone and approve every requested permission.'
+        );
+      }
+      granted = instagramGrantedScopes(permissions.data);
+    }
+    const missing = this.scopes.filter((scope) => !granted.includes(scope));
+    if (missing.length) {
+      throw new NotEnoughScopes(
+        `Instagram permissions missing: ${missing.join(
+          ', '
+        )}. Reconnect Instagram Standalone and approve these permissions.`
+      );
+    }
 
-    this.checkScopes(this.scopes, getAccessToken.permissions);
-
-    const { user_id, name, username, profile_picture_url } = await (
-      await fetch(
-        `https://graph.instagram.com/${META_GRAPH_API_VERSION}/me?fields=user_id,username,name,profile_picture_url&access_token=${access_token}`
-      )
-    ).json();
+    const profile = await this.instagramAuthResponse(
+      `https://graph.instagram.com/${META_GRAPH_API_VERSION}/me?fields=user_id,username,name,profile_picture_url&access_token=${access_token}`,
+      'profile lookup'
+    );
+    const { user_id, name, username, profile_picture_url } = profile;
+    if (!user_id || !username) {
+      throw new NotEnoughScopes(
+        'Instagram did not return the professional account profile. Confirm the account is a Business or Creator account.'
+      );
+    }
 
     return {
       id: user_id,
@@ -178,6 +247,45 @@ export class InstagramStandaloneProvider
       picture: profile_picture_url,
       username,
     };
+  }
+
+  private async instagramAuthResponse(
+    url: string,
+    phase: string,
+    options: RequestInit = {}
+  ) {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch {
+      throw new NotEnoughScopes(
+        `Instagram ${phase} could not reach Meta. Please try connecting again.`
+      );
+    }
+    let result: any;
+    try {
+      result = await response.json();
+    } catch {
+      throw new NotEnoughScopes(
+        `Instagram ${phase} returned an unreadable response (HTTP ${response.status}). Please try again.`
+      );
+    }
+    if (!response.ok || !result || typeof result !== 'object' || result.error) {
+      const code = result?.error?.code ?? result?.code;
+      const subcode = result?.error?.error_subcode;
+      // Never echo Meta's message/body: it may include credentials or tokens.
+      const detail =
+        `HTTP ${response.status}` +
+        (Number.isInteger(code) ? `, Meta code ${code}` : '') +
+        (Number.isInteger(subcode) ? `, subcode ${subcode}` : '');
+      throw new NotEnoughScopes(
+        `Instagram ${phase} failed (${detail}). Check the Instagram app configuration and reconnect.`
+      );
+    }
+    return result;
   }
 
   async post(
@@ -228,7 +336,11 @@ export class InstagramStandaloneProvider
     pendingData: any,
     integration: Integration
   ) {
-    return instagramProvider.finalizePost(accessToken, pendingData, integration);
+    return instagramProvider.finalizePost(
+      accessToken,
+      pendingData,
+      integration
+    );
   }
 
   async comment(
