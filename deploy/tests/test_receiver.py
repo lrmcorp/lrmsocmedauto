@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import tarfile
 import tempfile
+import subprocess
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -17,6 +19,52 @@ bootstrap_spec.loader.exec_module(bootstrap)
 
 
 class ReceiverTests(unittest.TestCase):
+    def registry_pull(self, directory, *, wrong_source=False, timeout=False):
+        root = Path(directory)
+        (root / 'incoming').mkdir()
+        calls = []
+        def run(args, **kwargs):
+            calls.append((args, kwargs))
+            if args[1] == 'info':
+                return 'overlayfs'
+            if args[1] == 'pull' and timeout:
+                raise subprocess.TimeoutExpired(args, 900)
+            if args[1:3] == ['image', 'inspect']:
+                return json.dumps({
+                    'org.opencontainers.image.source': 'other-project' if wrong_source else 'https://github.com/lrmcorp/lrmsocmedauto',
+                    'org.opencontainers.image.revision': 'a' * 40,
+                })
+        auth = SimpleNamespace(buffer=io.BytesIO(b'{"username":"lrmcorp","token":"test-ephemeral-token"}'))
+        with patch.object(receiver, 'ROOT', root), patch.object(receiver.sys, 'stdin', auth), patch.object(receiver, 'run', side_effect=run), patch.object(receiver.shutil, 'disk_usage', return_value=SimpleNamespace(free=20 * 1024**3)):
+            try:
+                receiver.pull_registry('a' * 40, 'sha256:' + 'b' * 64)
+            finally:
+                self.assertEqual(list((root / 'incoming').iterdir()), [])
+                self.registry_calls = calls
+        return calls
+
+    def test_registry_is_pinned_and_credentials_removed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            calls = self.registry_pull(directory)
+        pull = next(item for item in calls if item[0][1] == 'pull')
+        self.assertEqual(pull[0][2], 'ghcr.io/lrmcorp/lrmsocmedauto@sha256:' + 'b' * 64)
+        self.assertGreater(pull[1]['timeout'], 0)
+        self.assertLessEqual(pull[1]['timeout'], 900)
+        self.assertEqual(calls[-1][0][-1], 'lrmsosmed:' + 'a' * 40)
+        self.assertFalse(any('test-ephemeral-token' in str(args) for args, _ in calls))
+
+    def test_registry_wrong_source_cannot_become_deployable_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(RuntimeError, 'source/revision'):
+                self.registry_pull(directory, wrong_source=True)
+        self.assertFalse(any(args[1] == 'tag' for args, _ in self.registry_calls))
+
+    def test_registry_transfer_timeout_removes_credentials_and_never_tags(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(RuntimeError, '15 minutes'):
+                self.registry_pull(directory, timeout=True)
+        self.assertFalse(any(args[1] == 'tag' for args, _ in self.registry_calls))
+
     def test_project_layout_rejects_links_to_other_application_data(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'project'

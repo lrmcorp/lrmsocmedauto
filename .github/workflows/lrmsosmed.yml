@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: lrmsosmed-${{ github.ref }}
@@ -17,7 +18,7 @@ concurrency:
 jobs:
   test-and-deploy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 60
     env:
       IMAGE_TAG: ${{ github.sha }}
       PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://lrmsosmed.playgo.id' }}
@@ -38,13 +39,21 @@ jobs:
           if not re.fullmatch(r'[A-Za-z0-9.-]+', url.netloc) or not re.fullmatch(r'https://[A-Za-z0-9.-]+', os.environ['PUBLIC_URL']):
               raise SystemExit('PUBLIC_URL must contain only the HTTPS hostname, without a trailing slash')
           PY
+      - uses: docker/setup-buildx-action@v3
       - name: Build the immutable application image
-        run: |
-          docker build -f Dockerfile.lrm \
-            --build-arg PUBLIC_URL="$PUBLIC_URL" --build-arg VCS_REF="$IMAGE_TAG" \
-            -t "lrmsosmed:$IMAGE_TAG" .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.lrm
+          load: true
+          tags: lrmsosmed:${{ github.sha }}
+          build-args: |
+            PUBLIC_URL=${{ env.PUBLIC_URL }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=lrmsosmed
+          cache-to: type=gha,scope=lrmsosmed,mode=min
       - name: Release build cache on this disposable GitHub runner
-        run: docker builder prune --all --force
+        run: docker buildx prune --all --force
       - name: Prepare isolated test configuration
         run: |
           mkdir -p "$RUNNER_TEMP/lrmsosmed-ci"
@@ -91,16 +100,36 @@ jobs:
             docker compose -p lrmsosmed-ci --env-file "$CI_ENV_FILE" \
               -f deploy/compose.yaml -f deploy/ci.compose.yaml down -v --remove-orphans
           fi
+      - name: Publish tested application image to GHCR
+        id: publish
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          registry_image=ghcr.io/lrmcorp/lrmsocmedauto
+          export DOCKER_CONFIG="$RUNNER_TEMP/lrmsosmed-registry-auth"
+          mkdir -m 700 -p "$DOCKER_CONFIG"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+          docker tag "lrmsosmed:$IMAGE_TAG" "$registry_image:$IMAGE_TAG"
+          docker push "$registry_image:$IMAGE_TAG"
+          reference=$(docker image inspect --format '{{index .RepoDigests 0}}' "$registry_image:$IMAGE_TAG")
+          digest=${reference##*@}
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: Deploy to the dedicated VPS receiver
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true'
         env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
-          bash deploy/ssh-client.sh deploy "$IMAGE_TAG"
+          bash deploy/ssh-client.sh deploy-registry "$IMAGE_TAG" "$IMAGE_DIGEST"
           echo "VPS receiver confirmed deployment of $IMAGE_TAG." >> "$GITHUB_STEP_SUMMARY"
       - name: Verify the public HTTPS application
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.ENABLE_VPS_DEPLOY == 'true' && vars.VERIFY_PUBLIC_HTTPS != 'false'

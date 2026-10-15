@@ -14,11 +14,14 @@ Pengujian mencakup login, pembatasan registrasi, dua akun uji per jaringan,
 kalender, unggahan, halaman LRM, dan koneksi worker ke Temporal.
 
 Deployment baru aktif setelah variable `ENABLE_VPS_DEPLOY=true`. Image yang
-lulus pengujian dikirim melalui SSH ke receiver khusus proyek, dengan tag SHA
-commit lengkap. VPS tidak membangun source; ini mengurangi beban terhadap
-aplikasi lain. Tidak diperlukan token registry di VPS.
+lulus pengujian dipublikasikan ke GHCR. Melalui SSH, receiver khusus proyek
+menerima SHA commit dan digest image, lalu VPS menarik layer dari GHCR. VPS tidak membangun source; ini mengurangi beban terhadap
+aplikasi lain. Tidak diperlukan token registry permanen di VPS: token job sementara dikirim
+melalui stdin SSH, digunakan pada konfigurasi Docker privat sementara, lalu dihapus.
 
-Receiver hanya menerima `status`, `deploy <SHA>`, atau `rollback <SHA>`. Kunci
+Receiver hanya menerima `status`, `deploy <SHA>`, `rollback <SHA>`, atau
+`deploy-registry <SHA> <digest>`. Registry dibatasi ke
+`ghcr.io/lrmcorp/lrmsocmedauto`, digest dipin, dan label source/revision diverifikasi. Kunci
 Actions tidak mendapat shell umum, forwarding SSH, grup Docker, atau izin
 menjalankan perintah CCTV. Receiver menolak archive image dengan nama proyek
 lain atau label source/revision yang tidak sesuai sebelum `docker load`.
@@ -235,17 +238,32 @@ Setelah DNS siap, minta sertifikat untuk domain ini melalui NPM, aktifkan Force
 SSL, ubah `VERIFY_PUBLIC_HTTPS=true`, lalu jalankan workflow kembali. Keberhasilan
 internal tidak membuktikan HTTPS atau akses browser publik berhasil.
 
-## Transfer lambat dan batas waktu
+## Transfer melalui GHCR: maksimum 15 menit
 
-Workflow dibatasi 180 menit untuk mencakup build, pengujian, transfer, dan startup.
-Sebelum mengirim image, client memeriksa akses receiver dengan operasi `status`.
-Client mencetak ukuran image tanpa kompresi, memakai gzip level 9, dan menampilkan
-jumlah MiB yang diteruskan serta kecepatan rata-rata sekitar setiap 30 detik.
-Angka ukuran image awal bukan ukuran archive terkompresi; total terkompresi baru
-diketahui setelah stream selesai. Selesainya transfer belum berarti deployment
-berhasil: receiver masih memuat image, menjalankan layanan, dan memeriksa health.
+Workflow memakai GHCR untuk menghindari transfer archive penuh melalui SSH.
+Receiver membatasi autentikasi dan penarikan image menjadi 900 detik. Jika batas
+terlampaui, proses gagal dan aplikasi lama belum dihentikan. Batas ini menjamin
+transfer tidak berlangsung berjam-jam, bukan menjamin download sukses pada semua
+koneksi. Build, upload GitHub ke GHCR, migrasi, dan health checks terpisah dari
+batas transfer VPS. Job keseluruhan dibatasi 60 menit.
 
-Jika workflow dibatalkan di tengah transfer, receiver membersihkan archive
-sementara dan tidak mencatat image sebagai deployment berhasil. Jangan menghapus
-file atau menjalankan deployment kedua selama receiver masih aktif. Gunakan
-`/usr/local/sbin/lrmsosmed-receiver status` untuk memeriksa hasil akhir.
+Layer dependensi dipisahkan dari source dan label commit. Cache build GitHub
+dipakai agar layer yang tidak berubah dapat digunakan kembali. Docker pada VPS
+menarik hanya layer yang belum tersedia. Deployment pertama tetap mengunduh
+seluruh layer. Log pull menunjukkan progres per layer; tidak ada token ditampilkan.
+
+Workflow memerlukan `packages: write` untuk token job. Lima Secrets VPS tetap
+sama; jangan membuat PAT registry atau menggunakan kredensial CCTV. Token job
+sementara dikirim lewat stdin SSH, disimpan hanya di direktori privat sementara,
+dan dihapus setelah sukses, kegagalan, atau timeout yang ditangani receiver.
+
+### Upgrade receiver yang sudah terpasang
+
+Sebelum menjalankan workflow baru, perbarui source checkout bootstrap dari `main`
+dan ulangi `deploy/bootstrap.py` dengan domain, jaringan NPM, dan port yang sama.
+Bootstrap menjaga `.env` (termasuk kredensial Instagram), kunci, dan data proyek.
+Receiver versi lama akan menolak perintah `deploy-registry`; workflow tidak boleh
+mengklaim deployment berhasil jika receiver belum diperbarui.
+
+Mode archive SSH lama tetap tersedia untuk pemulihan manual. Workflow utama
+menggunakan `deploy-registry` dan tidak mengirim archive image lewat SSH.

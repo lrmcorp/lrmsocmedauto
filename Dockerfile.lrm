@@ -13,10 +13,24 @@ RUN --mount=type=secret,id=proxy_ca \
     npm --no-update-notifier --no-fund --global install pnpm@10.6.1 pm2@7.0.4
 
 WORKDIR /app
+# Keep dependency layers independent from application source and commit labels.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/backend/package.json ./apps/backend/package.json
+COPY apps/frontend/package.json ./apps/frontend/package.json
+COPY apps/orchestrator/package.json ./apps/orchestrator/package.json
+COPY apps/commands/package.json ./apps/commands/package.json
+COPY apps/extension/package.json ./apps/extension/package.json
+COPY apps/sdk/package.json ./apps/sdk/package.json
+COPY apps/frontend/scripts ./apps/frontend/scripts
+COPY libraries/nestjs-libraries/src/database/prisma ./libraries/nestjs-libraries/src/database/prisma
+RUN --mount=type=secret,id=proxy_ca \
+    --mount=type=cache,id=lrmsosmed-pnpm,target=/pnpm/store \
+    if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
+    pnpm install --frozen-lockfile --store-dir /pnpm/store \
+    && pnpm exec prisma generate --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma \
+    && rm -rf /root/.cache /root/.local/share/pnpm /root/.npm
+
 ARG PUBLIC_URL
-ARG VCS_REF
-LABEL org.opencontainers.image.source="https://github.com/lrmcorp/lrmsocmedauto"
-LABEL org.opencontainers.image.revision=${VCS_REF}
 ENV FRONTEND_URL=${PUBLIC_URL}
 ENV MAIN_URL=${PUBLIC_URL}
 ENV NEXT_PUBLIC_BACKEND_URL=${PUBLIC_URL}/api
@@ -26,12 +40,12 @@ ENV IS_GENERAL=true
 COPY . /app
 COPY var/docker/nginx.conf /etc/nginx/nginx.conf
 RUN --mount=type=secret,id=proxy_ca \
-    --mount=type=cache,id=lrmsosmed-pnpm,target=/pnpm/store \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
-    pnpm install --frozen-lockfile --store-dir /pnpm/store \
-    && pnpm exec prisma generate --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma \
-    && NODE_OPTIONS="--max-old-space-size=4096" pnpm run build \
-    && rm -rf /root/.cache /root/.local/share/pnpm /root/.npm
+    NODE_OPTIONS="--max-old-space-size=4096" pnpm run build \
+    && rm -rf apps/frontend/.next/cache /root/.cache /root/.local/share/pnpm /root/.npm
 
+ARG VCS_REF
+LABEL org.opencontainers.image.source="https://github.com/lrmcorp/lrmsocmedauto"
+LABEL org.opencontainers.image.revision=${VCS_REF}
 HEALTHCHECK --interval=15s --timeout=15s --start-period=90s --retries=12 CMD node /app/deploy/health.cjs
 CMD ["bash", "/app/deploy/start.sh"]

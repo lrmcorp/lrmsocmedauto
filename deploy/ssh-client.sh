@@ -2,7 +2,8 @@
 set -euo pipefail
 mode=${1:-}
 tag=${2:-}
-[[ "$mode" == deploy || "$mode" == rollback || "$mode" == status ]] || { printf 'Unsupported SSH operation\n' >&2; exit 1; }
+digest=${3:-}
+[[ "$mode" == deploy || "$mode" == deploy-registry || "$mode" == rollback || "$mode" == status ]] || { printf 'Unsupported SSH operation\n' >&2; exit 1; }
 if [[ "$mode" != status ]]; then
   [[ "$tag" =~ ^[0-9a-f]{40}$ ]] || { printf 'A full commit SHA is required\n' >&2; exit 1; }
 fi
@@ -26,7 +27,12 @@ ssh-keygen -F "[$VPS_HOST]:$VPS_PORT" -f "$directory/known_hosts" > /dev/null ||
 ssh_options=(-F /dev/null -i "$directory/key" -p "$VPS_PORT" -o BatchMode=yes
   -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$directory/known_hosts"
   -o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 -T)
-if [[ "$mode" == deploy ]]; then
+if [[ "$mode" == deploy-registry ]]; then
+  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { printf 'A pinned registry digest is required\n' >&2; exit 1; }
+  [[ -n "${GHCR_USER:-}" && -n "${GHCR_TOKEN:-}" ]] || { printf 'Missing ephemeral registry credentials\n' >&2; exit 1; }
+  python3 -c 'import json, os; print(json.dumps({"username": os.environ["GHCR_USER"], "token": os.environ["GHCR_TOKEN"]}))' \
+    | ssh "${ssh_options[@]}" "$VPS_USER@$VPS_HOST" "deploy-registry $tag $digest"
+elif [[ "$mode" == deploy ]]; then
   ssh "${ssh_options[@]}" "$VPS_USER@$VPS_HOST" status < /dev/null
   docker image inspect --format 'Uncompressed application image: {{.Size}} bytes' "lrmsosmed:$tag"
   printf 'Compressing image with gzip -9; stream progress follows every 30 seconds.\n'

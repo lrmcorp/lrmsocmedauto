@@ -17,16 +17,19 @@ ROOT = Path('/opt/lrmsosmed')
 SHARED = ROOT / 'shared'
 PROJECT = 'lrmsosmed'
 MAX_ARCHIVE = 4 * 1024**3
+REGISTRY_IMAGE = 'ghcr.io/lrmcorp/lrmsocmedauto'
 
 
-def run(args, *, env=None, input_file=None, output_file=None, capture=False):
+def run(args, *, env=None, input_file=None, output_file=None, capture=False, timeout=1200, progress=False):
     if args[0] == 'docker':
         args = ['docker', '--host=unix:///var/run/docker.sock', *args[1:]]
         env = (env or os.environ).copy()
         for name in ['DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH']:
             env.pop(name, None)
-    result = subprocess.run(args, env=env, stdin=input_file, stdout=output_file or subprocess.PIPE,
-                            stderr=subprocess.PIPE, check=False, timeout=1200)
+    result = subprocess.run(args, env=env, stdin=input_file,
+                            stdout=sys.stdout if progress else output_file or subprocess.PIPE,
+                            stderr=sys.stderr if progress else subprocess.PIPE,
+                            check=False, timeout=timeout)
     if result.returncode:
         # No environment dumps, rendered Compose configuration, or token logs.
         raise RuntimeError(f'{args[0]} failed (exit {result.returncode}); inspect project services locally')
@@ -153,8 +156,54 @@ def read_current():
     return None
 
 
-def deploy(tag, upload):
+def pull_registry(tag, digest):
+    deadline = time.monotonic() + 900
+    if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
+        raise RuntimeError('A full registry digest is required')
+    if run(['docker', 'info', '--format', '{{.Driver}}'], capture=True) not in ['overlay2', 'overlayfs']:
+        raise RuntimeError('Inspect the VPS Docker storage driver before pulling images')
+    if shutil.disk_usage(ROOT).free < 8 * 1024**3:
+        raise RuntimeError('At least 8 GiB free space is required')
+    credentials = sys.stdin.buffer.read(16385)
+    if len(credentials) > 16384:
+        raise RuntimeError('Invalid registry credentials')
+    try:
+        auth = json.loads(credentials)
+        username, token = auth['username'], auth['token']
+        if not re.fullmatch(r'[A-Za-z0-9-]+', username) or not isinstance(token, str) or not token or len(token) > 8192:
+            raise ValueError()
+    except (ValueError, KeyError, TypeError):
+        raise RuntimeError('Invalid registry credentials') from None
+    # Ephemeral job token; never use or overwrite the host Docker credentials.
+    with tempfile.TemporaryDirectory(prefix='registry-auth-', dir=ROOT / 'incoming') as directory:
+        env = os.environ.copy()
+        env['DOCKER_CONFIG'] = directory
+        with tempfile.TemporaryFile() as password:
+            password.write(token.encode())
+            password.seek(0)
+            run(['docker', 'login', 'ghcr.io', '--username', username, '--password-stdin'],
+                env=env, input_file=password, timeout=60)
+        reference = f'{REGISTRY_IMAGE}@{digest}'
+        print('Pulling pinned application image from GHCR; transfer limit 900 seconds.', flush=True)
+        try:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired('docker pull', 900)
+            run(['docker', 'pull', reference], env=env, timeout=remaining, progress=True)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError('Image pull exceeded 15 minutes; existing application was not stopped') from None
+        labels = json.loads(run(['docker', 'image', 'inspect', reference, '--format', '{{json .Config.Labels}}'],
+                                env=env, capture=True)) or {}
+        if labels.get('org.opencontainers.image.source') != 'https://github.com/lrmcorp/lrmsocmedauto' or labels.get('org.opencontainers.image.revision') != tag:
+            raise RuntimeError('Registry image source/revision does not match this project')
+        run(['docker', 'tag', reference, f'{PROJECT}:{tag}'], env=env)
+        print('Registry image downloaded and verified. Starting project deployment.', flush=True)
+
+
+def deploy(tag, upload, digest=None):
     current = read_current()
+    if digest:
+        pull_registry(tag, digest)
     if upload:
         receive(tag)
     image = run(['docker', 'image', 'inspect', f'{PROJECT}:{tag}', '--format', '{{.Id}}'], capture=True)
@@ -194,8 +243,9 @@ def main():
         raise RuntimeError('Run the project bootstrap first')
     command = sys.argv[1] if len(sys.argv) == 2 else ''
     match = re.fullmatch(r'(deploy|rollback) ([0-9a-f]{40})', command)
-    if command != 'status' and not match:
-        raise RuntimeError('Allowed commands: status, deploy <40-character SHA>, rollback <40-character SHA>')
+    registry = re.fullmatch(r'deploy-registry ([0-9a-f]{40}) (sha256:[0-9a-f]{64})', command)
+    if command != 'status' and not match and not registry:
+        raise RuntimeError('Allowed commands: status, deploy <SHA>, rollback <SHA>, deploy-registry <SHA> <digest>')
     with (ROOT / 'deploy.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if command == 'status':
@@ -203,6 +253,8 @@ def main():
             print('CURRENT_IMAGE ' + (current or 'not-deployed'))
             if current and not healthy(current, timeout=20):
                 raise RuntimeError('Project is not healthy')
+        elif registry:
+            deploy(registry[1], upload=False, digest=registry[2])
         else:
             deploy(match[2], upload=match[1] == 'deploy')
 
