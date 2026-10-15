@@ -25,7 +25,7 @@ module.exports = async function studioSmoke({
     });
     assert.ok(
       [expected, ...(expected === 200 ? [201] : [])].includes(response.status),
-      `Studio ${method} ${path}: ${response.status}`
+      `Studio ${method} ${path} format=${body?.postType || "default"}: ${response.status}`
     );
     return response.json().catch(() => ({}));
   }
@@ -167,6 +167,69 @@ module.exports = async function studioSmoke({
       where: { id: a.id },
       data: { disabled: false },
     });
+    await request('/inbox/' + a.id, memberHeaders[0], 'GET', undefined, 403);
+    const testMedia = [];
+    for (const ext of ['png', 'png', 'mov'])
+      testMedia.push(
+        await db.media.create({
+          data: {
+            organizationId: orgId,
+            studioOwnerId: createdIds[0],
+            name: 'scoped-format-fixture.' + ext,
+            path:
+              process.env.FRONTEND_URL +
+              '/uploads/scoped-format-fixture-' +
+              testMedia.length +
+              '.' +
+              ext,
+          },
+        })
+      );
+    for (const [postType, mediaIds] of [
+      ['photo', [testMedia[2].id]],
+      ['carousel', [testMedia[0].id]],
+      ['reel', [testMedia[0].id]],
+      ['story', testMedia.slice(0, 2).map((m) => m.id)],
+    ]) {
+      await request(
+        '/posts',
+        memberHeaders[0],
+        'POST',
+        {
+          integrationId: a.id,
+          action: 'draft',
+          content: 'scoped-fixture-invalid-format',
+          mediaIds,
+          postType,
+        },
+        400
+      );
+    }
+    for (const [postType, mediaIds] of [
+      ['photo', [testMedia[0].id]],
+      ['carousel', [testMedia[1].id, testMedia[0].id]],
+      ['reel', [testMedia[2].id]],
+      ['story', [testMedia[0].id]],
+    ]) {
+      const result = await request('/posts', memberHeaders[0], 'POST', {
+        integrationId: a.id,
+        action: 'draft',
+        content: 'scoped-fixture-valid-' + postType,
+        mediaIds,
+        postType,
+      });
+      const saved = await db.post.findUnique({
+        where: { id: result[0].postId },
+      });
+      assert.deepEqual(
+        JSON.parse(saved.image).map((m) => m.id),
+        mediaIds
+      );
+      assert.equal(
+        JSON.parse(saved.settings).post_type,
+        postType === 'story' ? 'story' : 'post'
+      );
+    }
     const created = await request('/posts', memberHeaders[0], 'POST', {
       integrationId: a.id,
       action: 'draft',
@@ -259,6 +322,9 @@ module.exports = async function studioSmoke({
         organizationId: orgId,
         content: { startsWith: 'scoped-fixture-' },
       },
+    });
+    await db.media.deleteMany({
+      where: { organizationId: orgId, studioOwnerId: { in: createdIds } },
     });
     await db.userOrganization.deleteMany({
       where: { organizationId: orgId, userId: { in: createdIds } },

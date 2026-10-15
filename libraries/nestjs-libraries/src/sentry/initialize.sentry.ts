@@ -62,7 +62,7 @@ export const initializeSentry = (appName: string, allowLogs = false) => {
         const method = String(
           normalizedRequest?.method || attributes?.['http.request.method'] || attributes?.['http.method'] || ''
         );
-        if (/\/studio\/(openai|members)(\/|\?|$)/.test(path)) return 0;
+        if (/\/studio\/(openai|members|inbox)(\/|\?|$)/.test(path)) return 0;
         // MCP stream GETs are declined with 405; never trace them
         if (method === 'GET' && /^(https?:\/\/[^/]+)?\/mcp(\/|-oauth|\?|$)/.test(path)) {
           return 0;
@@ -74,7 +74,7 @@ export const initializeSentry = (appName: string, allowLogs = false) => {
       enableLogs: true,
       beforeSend(event) {
         // Credential and password management requests must never be sent to telemetry.
-        if (/\/studio\/(openai|members)(\/|\?|$)/.test(event.request?.url || '')) return null;
+        if (/\/studio\/(openai|members|inbox)(\/|\?|$)/.test(event.request?.url || '')) return null;
         return event;
       },
 

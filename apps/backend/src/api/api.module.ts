@@ -57,6 +57,7 @@ import { WalletProvider } from '@gitroom/backend/services/auth/providers/wallet.
 import { OauthProvider } from '@gitroom/backend/services/auth/providers/oauth.provider';
 import { StripeController } from '@gitroom/backend/api/routes/stripe.controller';
 import { StudioController } from './routes/studio.controller';
+import { StudioInboxService } from './routes/studio.inbox.service';
 
 const authenticatedController = [
   StudioController,
@@ -105,6 +106,7 @@ const authenticatedController = [
         ...authenticatedController,
       ],
   providers: [
+    StudioInboxService,
     AuthService,
     StripeService,
     PaymentService,

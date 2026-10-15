@@ -64,7 +64,7 @@ export class InstagramProvider
         return 'Trial Reels can only have one video';
       }
       const hasVideo = firstPost?.some(
-        (f) => (f?.path?.indexOf?.('mp4') ?? -1) > -1
+        (f) => /\.(mp4|mov)(?:\?|$)/i.test(f?.path || '')
       );
       if (!hasVideo) {
         return 'Trial Reels must be a video';
@@ -78,7 +78,7 @@ export class InstagramProvider
         return 'Audio can only be added to a single video Reel';
       }
       const hasVideo = firstPost?.some(
-        (f) => (f?.path?.indexOf?.('mp4') ?? -1) > -1
+        (f) => /\.(mp4|mov)(?:\?|$)/i.test(f?.path || '')
       );
       if (!hasVideo) {
         return 'Audio can only be added to a video Reel';
@@ -734,7 +734,7 @@ export class InstagramProvider
           (firstPost?.media?.length || 0) > 1 && !isStory
             ? `&is_carousel_item=true`
             : ``;
-        const mediaType = hasExtension(m.path, 'mp4')
+        const mediaType = (hasExtension(m.path, 'mp4') || hasExtension(m.path, 'mov'))
           ? firstPost?.media?.length === 1
             ? isStory
               ? `video_url=${m.path}&media_type=STORIES`
@@ -775,7 +775,7 @@ export class InstagramProvider
           type === 'graph.facebook.com' &&
           !isStory &&
           firstPost?.media?.length === 1 &&
-          hasExtension(m.path, 'mp4')
+          (hasExtension(m.path, 'mp4') || hasExtension(m.path, 'mov'))
             ? `&audio_configuration=${encodeURIComponent(
                 JSON.stringify({
                   audio_id: firstPost.settings.audio.id,

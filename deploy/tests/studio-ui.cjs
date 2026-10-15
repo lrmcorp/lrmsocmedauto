@@ -50,6 +50,8 @@ const accounts = [
                 'delete',
                 'analytics',
                 'ai',
+                'messages',
+                'reply',
               ],
               accounts: owner ? accounts : accounts.slice(0, 1),
               aiConfigured: false,
@@ -71,6 +73,43 @@ const accounts = [
                 integrationId: 'ig-1',
               },
             ]
+          : path === '/media'
+          ? [
+              {
+                id: 'image1',
+                name: 'Sample one',
+                path: base + '/branding/lrm-icon-192.png',
+              },
+              {
+                id: 'image2',
+                name: 'Sample two',
+                path: base + '/branding/lrm-icon-512.png',
+              },
+            ]
+          : path === '/inbox/ig-1'
+          ? {
+              threads: [
+                {
+                  id: 'thread1',
+                  name: 'Pelanggan Hanna',
+                  handle: 'fixture-thread-handle',
+                },
+              ],
+              after: null,
+            }
+          : path === '/inbox/thread'
+          ? {
+              messages: [
+                {
+                  id: 'message1',
+                  text: 'Halo, produk ini masih tersedia?',
+                  incoming: true,
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+              canReply: true,
+              after: null,
+            }
           : path === '/members'
           ? [
               {
@@ -129,11 +168,64 @@ const accounts = [
       .getByRole('button', { name: 'Buat Konten', exact: true })
       .click();
     await page
-      .getByLabel('Caption', { exact: true })
+      .getByLabel(/Tulis caption|Caption/)
       .fill('Konten baru untuk Hanna Beauty');
     assert.ok(
       await page.getByRole('button', { name: 'Simpan Draf' }).isVisible()
     );
+    for (const name of ['Foto', 'Carousel', 'Reel', 'Story']) {
+      const format = page.getByRole('button', { name: new RegExp(name + ' ') });
+      await format.click();
+      assert.equal(await format.getAttribute('aria-pressed'), 'true');
+    }
+    await page.getByRole('button', { name: /Carousel / }).click();
+    await page
+      .getByRole('img', { name: 'Sample one', exact: true })
+      .locator('..')
+      .click();
+    await page
+      .getByRole('img', { name: 'Sample two', exact: true })
+      .locator('..')
+      .click();
+    await page.getByRole('button', { name: 'Geser media 2 ke kiri' }).click();
+    assert.ok(
+      (
+        await page
+          .getByRole('img', { name: 'Pratinjau media 1' })
+          .getAttribute('src')
+      ).includes('512')
+    );
+    await page
+      .getByRole('button', { name: 'Media berikutnya', exact: true })
+      .click();
+    assert.ok(
+      (
+        await page
+          .getByRole('img', { name: 'Pratinjau media 2' })
+          .getAttribute('src')
+      ).includes('192')
+    );
+    await page.screenshot({
+      path: output + '/instagram-composer.png',
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Buka menu' }).click();
+    await page
+      .getByRole('button', { name: 'Pesan Instagram', exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Muat Inbox', exact: true }).click();
+    await page.getByRole('button', { name: /Pelanggan Hanna/ }).click();
+    await page
+      .getByText('Halo, produk ini masih tersedia?', { exact: true })
+      .waitFor({ state: 'visible' });
+    assert.equal(
+      await page.getByLabel('Balasan', { exact: true }).isDisabled(),
+      false
+    );
+    await page.screenshot({
+      path: output + '/instagram-inbox.png',
+      fullPage: true,
+    });
     owner = false;
     await page.reload();
     await page.getByRole('heading', { name: 'Halo, Liando' }).waitFor();
@@ -164,6 +256,8 @@ const accounts = [
           'password-masked AI key input',
           '390px mobile navigation without overflow',
           'member UI hides owner tools and unassigned accounts',
+          'Instagram photo/carousel/reel/story choices and carousel ordering',
+          'Instagram inbox conversation view and reply permission UI (mock API, no actual send)',
         ],
         screenshots: output,
       })
@@ -172,6 +266,6 @@ const accounts = [
     await browser.close();
   }
 })().catch((error) => {
-  console.error(error.message);
+  console.error(error.stack);
   process.exitCode = 1;
 });

@@ -80,6 +80,31 @@ export class StudioPostDto {
   @MaxLength(100)
   postId?: string;
   @IsOptional()
-  @IsIn(['post', 'story'])
-  postType?: 'post' | 'story';
+  @IsIn(['post', 'photo', 'carousel', 'reel', 'story'])
+  postType?: 'post' | 'photo' | 'carousel' | 'reel' | 'story';
+}
+
+export class StudioThreadDto {
+  @IsString()
+  @MaxLength(100)
+  accountId: string;
+  @IsString()
+  @MaxLength(4096)
+  handle: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  after?: string;
+}
+export class StudioInboxQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  after?: string;
+}
+export class StudioReplyDto extends StudioThreadDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(1000)
+  text: string;
 }

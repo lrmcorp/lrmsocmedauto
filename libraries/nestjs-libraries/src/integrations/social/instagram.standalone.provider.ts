@@ -85,7 +85,7 @@ export class InstagramStandaloneProvider
         return 'Trial Reels can only have one video';
       }
       const hasVideo = firstPost?.some(
-        (f) => (f?.path?.indexOf?.('mp4') ?? -1) > -1
+        (f) => /\.(mp4|mov)(?:\?|$)/i.test(f?.path || '')
       );
       if (!hasVideo) {
         return 'Trial Reels must be a video';
@@ -148,7 +148,7 @@ export class InstagramStandaloneProvider
               : `${process?.env.FRONTEND_URL}`
           }/integrations/social/instagram-standalone`
         )}&response_type=code&scope=${encodeURIComponent(
-          this.scopes.join(',')
+          [...this.scopes, 'instagram_business_manage_messages'].join(',')
         )}` + `&state=${state}`,
       codeVerifier: makeSecureId(10),
       state,

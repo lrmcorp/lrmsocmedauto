@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -38,14 +39,59 @@ import {
   StudioPostDto,
 } from './studio.dto';
 import { decryptStudioKey, encryptStudioKey } from './studio.crypto';
+import { StudioInboxService } from './studio.inbox.service';
+import {
+  StudioThreadDto,
+  StudioReplyDto,
+  StudioInboxQueryDto,
+} from './studio.dto';
 
 @Controller('/studio')
 export class StudioController {
   constructor(
     private db: PrismaService,
     private access: StudioAccessService,
-    private posts: PostsService
+    private posts: PostsService,
+    private inbox: StudioInboxService
   ) {}
+
+  @Get('/inbox/:id')
+  conversations(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Param('id') id: string,
+    @Query() query: StudioInboxQueryDto
+  ) {
+    return this.inbox.conversations(org.id, user.id, id, query.after);
+  }
+  @Post('/inbox/thread')
+  messages(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Body() body: StudioThreadDto
+  ) {
+    return this.inbox.messages(
+      org.id,
+      user.id,
+      body.accountId,
+      body.handle,
+      body.after
+    );
+  }
+  @Post('/inbox/reply')
+  reply(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Body() body: StudioReplyDto
+  ) {
+    return this.inbox.reply(
+      org.id,
+      user.id,
+      body.accountId,
+      body.handle,
+      body.text
+    );
+  }
 
   private async owner(org: Organization, user: User) {
     if (!(await this.access.context(org.id, user.id)).owner)
@@ -115,6 +161,7 @@ export class StudioController {
         group: true,
         image: true,
         releaseURL: true,
+        settings: true,
       },
       orderBy: { publishDate: 'desc' },
       take: 200,
@@ -169,6 +216,13 @@ export class StudioController {
   }
 
   private async validPolicy(org: Organization, body: StudioMemberPolicyDto) {
+    if (
+      body.permissions.includes('reply') &&
+      !body.permissions.includes('messages')
+    )
+      throw new BadRequestException(
+        'Izin balas DM memerlukan izin baca pesan.'
+      );
     if (
       body.permissions.some((p) => ['schedule', 'publish'].includes(p)) &&
       !body.permissions.includes('draft')
@@ -507,6 +561,38 @@ export class StudioController {
     });
     if (media.length !== body.mediaIds.length)
       throw new ForbiddenException('Media bukan milik Anda.');
+    if (integration.providerIdentifier.startsWith('instagram')) {
+      const video = (path: string) => /\.(mp4|mov)(?:\?|$)/i.test(path);
+      if (
+        body.postType === 'photo' &&
+        (media.length !== 1 || video(media[0].path))
+      )
+        throw new BadRequestException(
+          'Foto feed memerlukan tepat satu gambar.'
+        );
+      if (
+        body.postType === 'carousel' &&
+        (media.length < 2 || media.length > 10)
+      )
+        throw new BadRequestException(
+          'Carousel memerlukan 2–10 foto atau video.'
+        );
+      if (
+        body.postType === 'reel' &&
+        (media.length !== 1 || !video(media[0].path))
+      )
+        throw new BadRequestException(
+          'Reel memerlukan tepat satu video MP4 atau MOV.'
+        );
+      if (body.postType === 'story' && media.length !== 1)
+        throw new BadRequestException(
+          'Story memerlukan tepat satu foto atau video.'
+        );
+      if (body.content.length > 2200)
+        throw new BadRequestException(
+          'Caption Instagram maksimal 2.200 karakter.'
+        );
+    }
     const old = body.postId
       ? await this.db.post.findFirst({
           where: {
@@ -558,7 +644,7 @@ export class StudioController {
           ],
           settings: {
             __type: integration.providerIdentifier,
-            post_type: body.postType || 'post',
+            post_type: body.postType === 'story' ? 'story' : 'post',
             title: body.content.slice(0, 90),
             privacy_level: 'SELF_ONLY',
             duet: false,

@@ -8,6 +8,8 @@ export const STUDIO_PERMISSIONS = [
   'delete',
   'analytics',
   'ai',
+  'messages',
+  'reply',
 ] as const;
 export type StudioPermission = (typeof STUDIO_PERMISSIONS)[number];
 export const STUDIO_PROVIDERS = [

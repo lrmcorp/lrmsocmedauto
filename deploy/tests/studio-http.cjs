@@ -15,6 +15,7 @@ const back = (name) => require(path.join(root, 'apps/backend/src', name));
 const { PrismaService } = lib('database/prisma/prisma.service.js');
 const { StudioAccessService } = lib('database/prisma/studio-access.service.js');
 const { StudioController } = back('api/routes/studio.controller.js');
+const { StudioInboxService } = back('api/routes/studio.inbox.service.js');
 const { AuthController } = back('api/routes/auth.controller.js');
 const { UsersController } = back('api/routes/users.controller.js');
 const { AuthService } = back('services/auth/auth.service.js');
@@ -129,6 +130,10 @@ let db, app, orgId, ownerId;
     imports: [ThrottlerModule.forRoot([{ ttl: 60000, limit: 1000 }])],
     controllers: [StudioController, AuthController, UsersController],
     providers: [
+      {
+        provide: StudioInboxService,
+        useValue: new StudioInboxService(db, access),
+      },
       { provide: PrismaService, useValue: db },
       { provide: StudioAccessService, useValue: access },
       { provide: PostsService, useValue: posts },

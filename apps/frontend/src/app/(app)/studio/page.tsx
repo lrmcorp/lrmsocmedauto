@@ -4,6 +4,11 @@ import React, { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import styles from './studio.module.scss';
+import {
+  InstagramFormat,
+  InstagramPreview,
+  InstagramInbox,
+} from './instagram-tools';
 
 type Account = {
   id: string;
@@ -29,6 +34,7 @@ type PostItem = {
   integrationId: string;
   image: string;
   releaseURL?: string;
+  settings?: string;
 };
 type Member = {
   userId: string;
@@ -46,6 +52,8 @@ const permissions: Record<string, string> = {
   delete: 'Hapus / batalkan konten',
   analytics: 'Lihat analitik',
   ai: 'Gunakan AI pribadi',
+  messages: 'Baca DM Instagram',
+  reply: 'Balas DM Instagram',
 };
 const states: Record<string, string> = {
   DRAFT: 'Draf',
@@ -55,6 +63,7 @@ const states: Record<string, string> = {
 };
 const tabs: Record<string, string> = {
   home: 'Beranda',
+  inbox: 'Pesan Instagram',
   posts: 'Konten & Jadwal',
   compose: 'Buat Konten',
   accounts: 'Akun Sosial',
@@ -62,6 +71,7 @@ const tabs: Record<string, string> = {
   ai: 'Asisten AI',
 };
 const iconPaths: Record<string, string> = {
+  inbox: 'M3 4h18v13H8l-5 4V4',
   home: 'm3 10 9-7 9 7v10H3V10m6 10v-7h6v7',
   posts: 'M5 3h14v18H5zM8 8h8M8 12h8M8 16h5',
   compose: 'M12 5v14M5 12h14',
@@ -118,7 +128,7 @@ export default function StudioPage() {
   const [selectedMedia, setSelectedMedia] = useState<string[]>([]);
   const [publishDate, setPublishDate] = useState('');
   const [editId, setEditId] = useState('');
-  const [postType, setPostType] = useState('post');
+  const [postType, setPostType] = useState('photo');
   const [filter, setFilter] = useState('');
   const [key, setKey] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -200,7 +210,7 @@ export default function StudioPage() {
     setSelectedMedia([]);
     setEditId('');
     setPublishDate('');
-    setPostType('post');
+    setPostType('photo');
   };
   const createPost = (action: string) =>
     run(async () => {
@@ -569,6 +579,14 @@ export default function StudioPage() {
               </section>
             </>
           )}
+          {tab === 'inbox' && (
+            <InstagramInbox
+              accounts={me.accounts}
+              canRead={allowed('messages')}
+              canReply={allowed('reply')}
+              api={api}
+            />
+          )}
           {tab === 'posts' && (
             <section className={styles.card}>
               <div className={styles.sectionHeading}>
@@ -625,10 +643,34 @@ export default function StudioPage() {
                                   setEditId(p.id);
                                   setContent(plain(p.content));
                                   setSelectedAccount(p.integrationId);
-                                  setSelectedMedia([]);
+                                  let images: { id: string; path: string }[] =
+                                    [];
+                                  let settings: { post_type?: string } = {};
+                                  try {
+                                    images = JSON.parse(p.image || '[]');
+                                    settings = JSON.parse(p.settings || '{}');
+                                  } catch {}
+                                  setSelectedMedia(
+                                    images
+                                      .map((m) => m.id)
+                                      .filter((id) =>
+                                        media.some((m) => m.id === id)
+                                      )
+                                  );
+                                  setPostType(
+                                    settings.post_type === 'story'
+                                      ? 'story'
+                                      : images.length > 1
+                                      ? 'carousel'
+                                      : /\.(mp4|mov)(?:\?|$)/i.test(
+                                          images[0]?.path || ''
+                                        )
+                                      ? 'reel'
+                                      : 'photo'
+                                  );
                                   setTab('compose');
                                   setNotice(
-                                    'Pilih kembali media milik Anda sebelum menyimpan perubahan draf.'
+                                    'Draf dimuat. Periksa kembali media dan urutannya sebelum menyimpan.'
                                   );
                                 }}
                               >
@@ -683,7 +725,15 @@ export default function StudioPage() {
               {!allowed('draft') ? (
                 <p>Izin membuat draf belum diberikan. Hubungi superowner.</p>
               ) : (
-                <div className={styles.formGrid}>
+                <div
+                  className={`${styles.formGrid} ${
+                    me.accounts
+                      .find((a) => a.id === selectedAccount)
+                      ?.providerIdentifier.startsWith('instagram')
+                      ? styles.composerLayout
+                      : ''
+                  }`}
+                >
                   <div className={styles.form}>
                     <label>
                       Akun sosial
@@ -704,45 +754,71 @@ export default function StudioPage() {
                     {me.accounts
                       .find((a) => a.id === selectedAccount)
                       ?.providerIdentifier.startsWith('instagram') && (
-                      <label>
-                        Jenis konten
-                        <select
-                          value={postType}
-                          onChange={(e) => setPostType(e.target.value)}
-                        >
-                          <option value="post">Feed / Reel</option>
-                          <option value="story">Story</option>
-                        </select>
-                      </label>
+                      <InstagramFormat
+                        value={postType}
+                        onChange={setPostType}
+                      />
                     )}
                     <label>
-                      Caption
+                      {me.accounts
+                        .find((a) => a.id === selectedAccount)
+                        ?.providerIdentifier.startsWith('instagram')
+                        ? '3. Tulis caption'
+                        : 'Caption'}
                       <textarea
+                        data-sentry-block
                         rows={7}
-                        maxLength={20000}
+                        maxLength={
+                          me.accounts
+                            .find((a) => a.id === selectedAccount)
+                            ?.providerIdentifier.startsWith('instagram')
+                            ? 2200
+                            : 20000
+                        }
                         value={content}
                         placeholder="Tulis cerita untuk audiens Anda…"
                         onChange={(e) => setContent(e.target.value)}
                       />
                     </label>
+                    {me.accounts
+                      .find((a) => a.id === selectedAccount)
+                      ?.providerIdentifier.startsWith('instagram') && (
+                      <small className={styles.muted}>
+                        {content.length}/2.200 karakter
+                      </small>
+                    )}
                     <label>
                       Unggah gambar / video (maks. 15 MB)
                       <input
                         type="file"
+                        multiple
                         accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
                         disabled={busy}
                         onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file)
+                          const files = Array.from(e.target.files || []).slice(
+                            0,
+                            Math.max(0, 10 - selectedMedia.length)
+                          );
+                          if (files.length)
                             run(async () => {
-                              const data = new FormData();
-                              data.append('file', file);
-                              const item = await api('/media', 'POST', data);
+                              let uploaded = 0;
+                              for (const file of files) {
+                                if (file.size > 15 * 1024 * 1024)
+                                  throw new Error(
+                                    'Setiap berkas maksimal 15 MB.'
+                                  );
+                                const data = new FormData();
+                                data.append('file', file);
+                                const item = await api('/media', 'POST', data);
+                                setSelectedMedia((previous) =>
+                                  [...previous, item.id].slice(0, 10)
+                                );
+                                uploaded++;
+                              }
                               await refresh();
-                              setSelectedMedia((previous) =>
-                                [...previous, item.id].slice(0, 10)
+                              setNotice(
+                                `${uploaded} media berhasil diunggah. Urutkan media pada pratinjau carousel.`
                               );
-                              setNotice('Media berhasil diunggah.');
                             });
                           e.target.value = '';
                         }}
@@ -786,6 +862,18 @@ export default function StudioPage() {
                     {busy && <p role="status">Memproses…</p>}
                   </div>
                   <aside>
+                    {me.accounts
+                      .find((a) => a.id === selectedAccount)
+                      ?.providerIdentifier.startsWith('instagram') && (
+                      <InstagramPreview
+                        format={postType}
+                        selected={selectedMedia}
+                        media={media}
+                        caption={content}
+                        account={accountName(selectedAccount)}
+                        onChange={setSelectedMedia}
+                      />
+                    )}
                     <h3>Media Anda</h3>
                     <p className={styles.muted}>
                       Pilih maksimal 10 media. Berkas ini dapat diakses melalui
@@ -825,11 +913,15 @@ export default function StudioPage() {
                         Unggah media atau buat gambar melalui Asisten AI.
                       </div>
                     )}
-                    <p className={styles.muted}>
-                      TikTok menggunakan privasi SELF_ONLY pada studio ini.
-                      Superowner dapat memakai editor lanjutan untuk pengaturan
-                      platform lainnya.
-                    </p>
+                    {me.accounts
+                      .find((a) => a.id === selectedAccount)
+                      ?.providerIdentifier.startsWith('tiktok') && (
+                      <p className={styles.muted}>
+                        TikTok menggunakan privasi SELF_ONLY pada studio ini.
+                        Superowner dapat memakai editor lanjutan untuk
+                        pengaturan platform lainnya.
+                      </p>
+                    )}
                   </aside>
                 </div>
               )}

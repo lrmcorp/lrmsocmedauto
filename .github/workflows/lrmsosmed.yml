@@ -55,7 +55,7 @@ jobs:
       - name: Test Instagram authorization response handling
         run: |
           docker run --rm --entrypoint node "lrmsosmed:$IMAGE_TAG" \
-            --test /app/deploy/tests/instagram-auth.cjs
+            --test /app/deploy/tests/instagram-auth.cjs /app/deploy/tests/instagram-inbox.cjs
       - name: Test internal workspace administrator permissions
         run: |
           docker run --rm --entrypoint node "lrmsosmed:$IMAGE_TAG" \

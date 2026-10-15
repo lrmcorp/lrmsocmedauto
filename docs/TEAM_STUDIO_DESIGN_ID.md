@@ -17,6 +17,7 @@ termasuk saat browser pengguna berada di zona waktu lain.
 - Anggota & Akses: hanya superowner; buat username/password, pilih akun, atur izin,
   nonaktifkan anggota dan reset password.
 - Asisten AI: API key OpenAI pribadi, caption dan gambar yang disimpan ke media.
+- Pesan Instagram: inbox Standalone dan balasan teks manual sesuai izin Meta.
 
 Superowner dapat membuka **Editor lanjutan** untuk fitur kalender, pengaturan
 platform, statistik dari platform, dan koneksi OAuth yang sudah ada.
@@ -43,6 +44,8 @@ Satu aplikasi Meta dapat melayani banyak akun yang memenuhi persyaratan Meta.
 | Terbitkan sekarang | Mengantrekan penerbitan segera; perlu izin draf |
 | Hapus / batalkan | Menghapus draf atau membatalkan konten yang belum terbit |
 | Lihat analitik | Ringkasan jumlah status publikasi akun tugas, bukan insight langsung dari platform |
+| Baca DM Instagram | Membuka percakapan akun Instagram Standalone tugas |
+| Balas DM Instagram | Membalas teks dalam jendela Meta; perlu izin baca |
 | Gunakan AI pribadi | Menyimpan API key sendiri dan meminta caption/gambar OpenAI |
 
 Koneksi OAuth, pengelolaan anggota, API key workspace, serta perubahan akun pemilik
@@ -69,8 +72,8 @@ Unggahan studio dibatasi 15 MB per berkas, dengan pemeriksaan tipe berkas sebena
 Gambar dari ChatGPT dapat diunduh dan diunggah melalui **Buat Konten**.
 
 Draf tunggal dapat diedit. Draf lama yang berisi rangkaian beberapa postingan perlu
-editor lanjutan pemilik. Mengedit draf di studio membutuhkan pemilihan kembali media
-milik pengguna; UI memberi pemberitahuan agar gambar tidak terhapus tanpa disadari.
+editor lanjutan pemilik. Mengedit draf memulihkan urutan media yang masih ada pada pustaka pengguna;
+pengguna diminta memeriksa kembali pilihan medianya.
 TikTok pada composer sederhana memakai privasi SELF_ONLY; gunakan editor lanjutan
 pemilik untuk pengaturan TikTok lainnya. Validasi media/platform tetap berlaku.
 
@@ -133,3 +136,5 @@ Ikuti [panduan deployment/pemulihan](DEPLOY_VPS_ID.md) jika perlu kembali ke ima
   anggota tanpa panel pemilik. API memakai fixture; bukan bukti akses VPS.
 - Uji OAuth Instagram dan permintaan OpenAI nyata tetap memerlukan kredensial
   privat dan pemeriksaan setelah deployment. Tidak ada konten uji dipublikasikan.
+
+Rincian izin DM dan format foto/carousel/Reel/Story ada di [panduan Instagram](INSTAGRAM_CONNECTION_ID.md#inbox-dan-composer-instagram-di-studio-internal).

@@ -70,10 +70,10 @@ test('network errors never echo an access-token URL', async () => {
     error => error.message.includes('could not reach Meta') && !error.message.includes('fixture-secret'));
 });
 
-test('authorization URL requests fresh Instagram login and the four required scopes', async () => {
+test('authorization URL requests publish permissions plus optional Instagram messaging', async () => {
   const { url } = await new InstagramStandaloneProvider().generateAuthUrl();
   const parsed = new URL(url);
   assert.equal(parsed.hostname, 'www.instagram.com');
   assert.equal(parsed.searchParams.get('force_authentication'), '1');
-  assert.deepEqual(instagramGrantedScopes(parsed.searchParams.get('scope')), required);
+  assert.deepEqual(instagramGrantedScopes(parsed.searchParams.get('scope')), [...required, 'instagram_business_manage_messages']);
 });
