@@ -95,7 +95,8 @@ minimal 32 karakter. Tidak ada secret GitHub baru. Key tidak pernah dikembalikan
 oleh endpoint, tidak memakai localStorage, dan dapat diganti atau dihapus sendiri.
 SDK memakai client per permintaan, tanpa fallback ke key pengguna lain/global.
 Error SDK dikembalikan sebagai pesan umum; telemetri request pengelolaan key dan
-password ditolak, pencatatan input/output OpenAI dimatikan.
+password ditolak, pencatatan input/output OpenAI dimatikan. Session replay juga
+menyamarkan input/teks dan memblokir media internal.
 
 Backup database dan `.env` harus disimpan privat bersama. Mengubah JWT_SECRET
 membuat key yang sudah tersimpan tidak terbaca; pengguna perlu memasukkan ulang key.
@@ -105,7 +106,10 @@ OpenAI pribadi yang dijelaskan di sini adalah **Asisten AI** di studio internal.
 ## Deployment dan pemulihan
 
 Workflow tetap memakai cache build dan transfer layer GHCR; batas transfer 900
- detik tetap berlaku. Tidak ada pengiriman arsip penuh baru lewat SSH.
+detik tetap berlaku. Tidak ada pengiriman arsip penuh baru lewat SSH.
+Perubahan source service Prisma tidak lagi membatalkan cache dependency Docker;
+file schema saja disalin sebelum instalasi dependency. Perubahan schema/dependency
+tetap memerlukan layer dependency baru.
 Receiver yang sudah mendukung `/app/deploy/migrate.cjs` tidak perlu bootstrap ulang.
 Receiver membuat backup PostgreSQL, unggahan, dan `.env` sebelum migrasi.
 

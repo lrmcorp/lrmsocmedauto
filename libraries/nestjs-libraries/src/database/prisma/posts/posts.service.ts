@@ -1155,7 +1155,8 @@ export class PostsService {
         creationMethod,
         body.inter,
         keepGroup,
-        batchId
+        batchId,
+        studioActor
       );
 
       if (!posts?.length) {
@@ -1163,11 +1164,6 @@ export class PostsService {
       }
 
       const existingIds = (post.value || []).map((p) => p.id).filter(Boolean);
-      // Stamp before starting the workflow; even an immediate publish must
-      // have an author whose current permission can be rechecked by the worker.
-      if (studioActor) {
-        await this._postRepository.stampStudioAuthor(posts.map(p => p.id), studioActor.userId, studioActor.action);
-      }
       await this.detachStaleAnchors(
         posts.filter((p) => existingIds.includes(p.id))
       );

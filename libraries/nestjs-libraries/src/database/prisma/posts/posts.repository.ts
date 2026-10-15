@@ -24,9 +24,6 @@ dayjs.extend(utc);
 
 @Injectable()
 export class PostsRepository {
-  async stampStudioAuthor(ids: string[], userId: string, action: string) {
-    await this._post.model.post.updateMany({ where: { id: { in: ids } }, data: { studioAuthorId: userId, studioAction: action } });
-  }
   constructor(
     private _post: PrismaRepository<'post'>,
     private _popularPosts: PrismaRepository<'popularPosts'>,
@@ -620,7 +617,8 @@ export class PostsRepository {
     keepGroup = false,
     // Shared by the posts saved together for several channels, so opening one
     // of them in the editor brings the others.
-    batchId?: string
+    batchId?: string,
+    studioActor?: { userId: string; action: string }
   ) {
     const posts: Post[] = [];
     const uuid = uuidv4();
@@ -653,6 +651,9 @@ export class PostsRepository {
 
     for (const value of body.value) {
       const updateData = (type: 'create' | 'update') => ({
+        // Persist authorization with the post itself: a failed separate stamp
+        // could otherwise leave a QUEUE row for the missing-posts sweep.
+        ...(studioActor ? { studioAuthorId: studioActor.userId, studioAction: studioActor.action } : {}),
         publishDate: dayjs(date).toDate(),
         integration: {
           connect: {

@@ -27,9 +27,10 @@ export const initializeSentryClient = (environment: string, dsn: string) =>
       Sentry.browserTracingIntegration(),
       Sentry.browserProfilingIntegration(),
       Sentry.replayIntegration({
-        maskAllText: false,
-        maskAllInputs: false,
-        blockAllMedia: false,
+        // Internal content and personal credentials must not enter session replays.
+        maskAllText: true,
+        maskAllInputs: true,
+        blockAllMedia: true,
       }),
       Sentry.feedbackIntegration({
         // Disable the injection of the default widget

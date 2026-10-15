@@ -22,7 +22,8 @@ COPY apps/commands/package.json ./apps/commands/package.json
 COPY apps/extension/package.json ./apps/extension/package.json
 COPY apps/sdk/package.json ./apps/sdk/package.json
 COPY apps/frontend/scripts ./apps/frontend/scripts
-COPY libraries/nestjs-libraries/src/database/prisma ./libraries/nestjs-libraries/src/database/prisma
+# Ordinary Prisma service edits must not invalidate the installed dependency layer.
+COPY libraries/nestjs-libraries/src/database/prisma/schema.prisma ./libraries/nestjs-libraries/src/database/prisma/schema.prisma
 RUN --mount=type=secret,id=proxy_ca \
     --mount=type=cache,id=lrmsosmed-pnpm,target=/pnpm/store \
     if [ -f /run/secrets/proxy_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/proxy_ca; fi; \
