@@ -37,25 +37,34 @@ async function json(url, options = {}) {
     body: JSON.stringify({ provider: 'LOCAL', providerToken: 'not-a-real-token' }),
   });
   assert.equal(tokenLogin.status, 403);
-  passed.push('internal email/password authentication only');
-  assert.equal((await json(`${api}/auth/can-register`)).register, true);
-  const email = `lrmsosmed-smoke-${randomUUID()}@example.invalid`;
-  const password = randomBytes(24).toString('hex');
-  const body = { email, password, provider: 'LOCAL', company: 'LRMSosmed Disposable Test' };
-  const register = await fetch(`${api}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const user = await db.user.findFirst({ where: { email }, include: { organizations: true } });
-  if (user) { userId = user.id; orgId = user.organizations[0].organizationId; }
-  assert.equal(register.status, 200); assert.deepEqual(await register.json(), { register: true });
-  const cookie = register.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
-  assert.ok(cookie.includes('auth='));
   assert.equal((await json(`${api}/auth/can-register`)).register, false);
-  const blocked = await fetch(`${api}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, email: `second-${email}` }) });
-  assert.equal(blocked.status, 400); assert.match(await blocked.text(), /Registration is disabled/);
-  const login = await json(`${api}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, provider: 'LOCAL' }) });
-  assert.deepEqual(login, { login: true });
-  const wrong = await fetch(`${api}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'incorrect', provider: 'LOCAL' }) });
-  assert.equal(wrong.status, 400);
-  passed.push('registration, login, and private registration controls');
+  const blocked = await fetch(`${api}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'LOCAL' }) });
+  assert.equal(blocked.status, 403);
+  const username = `smoke-${randomBytes(8).toString('hex')}`;
+  const password = randomBytes(24).toString('hex');
+  const { spawnSync } = require('node:child_process');
+  const provision = spawnSync(process.execPath, [path.join(__dirname, 'provision-owner.cjs')], {
+    input: JSON.stringify({ username, password }), encoding: 'utf8',
+  });
+  assert.equal(provision.status, 0, 'Private owner provisioning must succeed on the disposable empty database');
+  const owner = await db.user.findUnique({ where: { username }, include: { organizations: true } });
+  userId = owner.id; orgId = owner.organizations[0].organizationId;
+  assert.equal(owner.isSuperAdmin, true); assert.equal(owner.organizations[0].role, 'SUPERADMIN');
+  const email = owner.email;
+  const login = await fetch(`${api}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: username.toUpperCase(), password, provider: 'LOCAL' }) });
+  assert.equal(login.status, 200); assert.deepEqual(await login.json(), { login: true });
+  const cookie = login.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
+  assert.ok(cookie.includes('auth='));
+  for (const credentials of [{ username, password: 'incorrect' }, { email, password }]) {
+    const wrong = await fetch(`${api}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...credentials, provider: 'LOCAL' }) });
+    assert.equal(wrong.status, 400);
+  }
+  const signupPage = await fetch(`${base}/auth?provider=GOOGLE`);
+  assert.match(new URL(signupPage.url).pathname, /^\/auth\/login$/);
+  const markup = await signupPage.text();
+  assert.ok(!markup.includes('Create Account'));
+  assert.match(markup, /Username/);
+  passed.push('username login, invalid credentials, email login rejection, and no public signup');
   const headers = { Cookie: cookie };
   const self = await json(`${api}/user/self`, { headers });
   assert.equal(self.orgId, orgId); assert.equal(self.email, email); assert.ok(self.totalChannels > 1);

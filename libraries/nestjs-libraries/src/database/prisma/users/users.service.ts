@@ -18,6 +18,10 @@ export class UsersService {
 
   private readonly _logger = new Logger(UsersService.name);
 
+  getUserByUsername(username: string) {
+    return this._usersRepository.getUserByUsername(username);
+  }
+
   getUserByEmail(email: string) {
     return this._usersRepository.getUserByEmail(email);
   }
@@ -53,11 +57,7 @@ export class UsersService {
       );
 
     this._logger.log(
-      `User login switch performed by admin ${adminId}: account ${
-        kept.id
-      } login ${switched.email} -> ${kept.email}; account ${
-        switched.id
-      } login ${kept.email} -> ${switched.email}`
+      `User login switch performed by admin ${adminId}: account ${kept.id} login ${switched.email} -> ${kept.email}; account ${switched.id} login ${kept.email} -> ${switched.email}`
     );
 
     // the swap is already committed; a notification failure must not fail it

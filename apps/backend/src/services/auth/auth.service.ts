@@ -19,15 +19,10 @@ export class AuthService {
     private _emailService: EmailService,
     private _providerManager: AuthProviderManager
   ) {}
-  async canRegister(provider: string) {
-    if (
-      process.env.DISABLE_REGISTRATION !== 'true' ||
-      provider === Provider.GENERIC
-    ) {
-      return true;
-    }
-
-    return (await this._organizationService.getCount()) === 0;
+  async canRegister(_provider: string) {
+    // Keep the readiness endpoint checking the database, without allowing signup.
+    await this._organizationService.getCount();
+    return false;
   }
 
   async routeAuth(
@@ -37,76 +32,22 @@ export class AuthService {
     userAgent: string,
     addToOrg?: boolean | { orgId: string; role: 'USER' | 'ADMIN'; id: string }
   ) {
-    if (provider === Provider.LOCAL) {
-      if (process.env.DISALLOW_PLUS && body.email.includes('+')) {
-        throw new Error('Email with plus sign is not allowed');
-      }
-      if (body instanceof CreateOrgUserDto) {
-        body.email = body.email.toLowerCase();
-      }
-      const user = await this._userService.getUserByEmail(body.email);
-      if (body instanceof CreateOrgUserDto) {
-        if (user) {
-          throw new Error('Email already exists');
-        }
-
-        if (!(await this.canRegister(provider))) {
-          throw new Error('Registration is disabled');
-        }
-
-        const create = await this._organizationService.createOrgAndUser(
-          body,
-          ip,
-          userAgent
-        );
-
-        const addedOrg =
-          addToOrg && typeof addToOrg !== 'boolean'
-            ? await this._organizationService.addUserToOrg(
-                create.users[0].user.id,
-                addToOrg.id,
-                addToOrg.orgId,
-                addToOrg.role
-              )
-            : false;
-
-        const obj = { addedOrg, jwt: await this.jwt(create.users[0].user) };
-        await this._emailService.sendEmailSync(
-          body.email,
-          'Activate your account',
-          `Click <a href="${process.env.FRONTEND_URL}/auth/activate/${obj.jwt}">here</a> to activate your account`
-        );
-        return obj;
-      }
-
-      if (!user || !AuthChecker.comparePassword(body.password, user.password)) {
-        throw new Error('Invalid user name or password');
-      }
-
-      if (!user.activated) {
-        throw new Error('User is not activated');
-      }
-
-      return { addedOrg: false, jwt: await this.jwt(user) };
+    if (provider !== Provider.LOCAL || !(body instanceof LoginUserDto)) {
+      throw new Error(
+        'Public account creation and external login are disabled'
+      );
     }
-
-    const user = await this.loginOrRegisterProvider(
-      provider,
-      body as CreateOrgUserDto,
-      ip,
-      userAgent
-    );
-
-    const addedOrg =
-      addToOrg && typeof addToOrg !== 'boolean'
-        ? await this._organizationService.addUserToOrg(
-            user.id,
-            addToOrg.id,
-            addToOrg.orgId,
-            addToOrg.role
-          )
-        : false;
-    return { addedOrg, jwt: await this.jwt(user) };
+    const user = await this._userService.getUserByUsername(body.username);
+    if (
+      !user ||
+      !user.password ||
+      !AuthChecker.comparePassword(body.password, user.password)
+    ) {
+      throw new Error('Invalid username or password');
+    }
+    if (!user.activated)
+      throw new Error('Account is disabled; contact the administrator');
+    return { addedOrg: false, jwt: await this.jwt(user) };
   }
 
   public getOrgFromCookie(cookie?: string) {

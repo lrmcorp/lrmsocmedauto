@@ -12,13 +12,13 @@ export class InternalAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const route = String(request.route?.path || request.path || '');
     if (
-      /\/auth\/(oauth|farcaster)/.test(route) ||
+      !['/auth/login', '/auth/can-register'].includes(route) ||
       (request.body?.provider !== undefined &&
         request.body.provider !== 'LOCAL') ||
       Boolean(request.body?.providerToken)
     ) {
       throw new ForbiddenException(
-        'This internal application supports email and password login only'
+        'This internal application supports username and password login only'
       );
     }
     return true;

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -14,7 +15,6 @@ import { Throttle } from '@nestjs/throttler';
 import { ThrottlerRealIpGuard } from '@gitroom/nestjs-libraries/throttler/throttler.provider';
 import { Response, Request } from 'express';
 
-import { CreateOrgUserDto } from '@gitroom/nestjs-libraries/dtos/auth/create.org.user.dto';
 import { LoginUserDto } from '@gitroom/nestjs-libraries/dtos/auth/login.user.dto';
 import { AuthService } from '@gitroom/backend/services/auth/auth.service';
 import { ForgotReturnPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/forgot-return.password.dto';
@@ -47,77 +47,8 @@ export class AuthController {
   }
 
   @Post('/register')
-  async register(
-    @Req() req: Request,
-    @Body() body: CreateOrgUserDto,
-    @Res({ passthrough: false }) response: Response,
-    @RealIP() ip: string,
-    @UserAgent() userAgent: string
-  ) {
-    try {
-      const getOrgFromCookie = this._authService.getOrgFromCookie(
-        req?.cookies?.org
-      );
-
-      const { jwt, addedOrg } = await this._authService.routeAuth(
-        body.provider,
-        body,
-        ip,
-        userAgent,
-        getOrgFromCookie
-      );
-
-      const activationRequired =
-        body.provider === 'LOCAL' && this._emailService.hasProvider();
-
-      if (activationRequired) {
-        response.header('activate', 'true');
-        response.status(200).json({ activate: true });
-        return;
-      }
-
-      response.cookie('auth', jwt, {
-        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-        ...(!process.env.NOT_SECURED
-          ? {
-              secure: true,
-              httpOnly: true,
-              sameSite: 'none',
-            }
-          : {}),
-        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-      });
-
-      if (process.env.NOT_SECURED) {
-        response.header('auth', jwt);
-      }
-
-      if (typeof addedOrg !== 'boolean' && addedOrg?.organizationId) {
-        response.cookie('showorg', addedOrg.organizationId, {
-          domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-          ...(!process.env.NOT_SECURED
-            ? {
-                secure: true,
-                httpOnly: true,
-                sameSite: 'none',
-              }
-            : {}),
-          expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-        });
-
-        if (process.env.NOT_SECURED) {
-          response.header('showorg', addedOrg.organizationId);
-        }
-      }
-
-      Sentry.metrics.count('new_user', 1);
-      response.header('onboarding', 'true');
-      response.status(200).json({
-        register: true,
-      });
-    } catch (e: any) {
-      response.status(400).send(e.message);
-    }
+  register() {
+    throw new ForbiddenException('Public account creation is disabled');
   }
 
   @Post('/login')
@@ -129,16 +60,11 @@ export class AuthController {
     @UserAgent() userAgent: string
   ) {
     try {
-      const getOrgFromCookie = this._authService.getOrgFromCookie(
-        req?.cookies?.org
-      );
-
-      const { jwt, addedOrg } = await this._authService.routeAuth(
+      const { jwt } = await this._authService.routeAuth(
         body.provider,
         body,
         ip,
-        userAgent,
-        getOrgFromCookie
+        userAgent
       );
 
       response.cookie('auth', jwt, {
@@ -155,24 +81,6 @@ export class AuthController {
 
       if (process.env.NOT_SECURED) {
         response.header('auth', jwt);
-      }
-
-      if (typeof addedOrg !== 'boolean' && addedOrg?.organizationId) {
-        response.cookie('showorg', addedOrg.organizationId, {
-          domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-          ...(!process.env.NOT_SECURED
-            ? {
-                secure: true,
-                httpOnly: true,
-                sameSite: 'none',
-              }
-            : {}),
-          expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-        });
-
-        if (process.env.NOT_SECURED) {
-          response.header('showorg', addedOrg.organizationId);
-        }
       }
 
       response.header('reload', 'true');

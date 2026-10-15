@@ -83,30 +83,14 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  if (
-    nextUrl.pathname.startsWith('/auth/register') &&
-    process.env.DISABLE_REGISTRATION === 'true'
-  ) {
+  if (nextUrl.pathname.startsWith('/auth') && nextUrl.pathname !== '/auth/login' && !authCookie) {
     return NextResponse.redirect(new URL('/auth/login', nextUrl.href));
   }
 
   const org = nextUrl.searchParams.get('org');
   const url = new URL(nextUrl).search;
   if (!nextUrl.pathname.startsWith('/auth') && !authCookie) {
-    const providers = ['google', 'settings'];
-    const findIndex = providers.find((p) => nextUrl.href.indexOf(p) > -1);
-    const additional = !findIndex
-      ? ''
-      : (url.indexOf('?') > -1 ? '&' : '?') +
-        `provider=${(findIndex === 'settings'
-          ? process.env.POSTIZ_GENERIC_OAUTH
-            ? 'generic'
-            : 'github'
-          : findIndex
-        ).toUpperCase()}`;
-    return NextResponse.redirect(
-      new URL(`/auth${url}${additional}`, nextUrl.href)
-    );
+    return NextResponse.redirect(new URL(`/auth/login${url}`, nextUrl.href));
   }
 
   // If the url is /auth and the cookie exists, redirect to /

@@ -111,6 +111,17 @@ export class UsersRepository {
     });
   }
 
+  getUserByUsername(username: string) {
+    return this._user.model.user.findFirst({
+      where: {
+        username: username.trim().toLowerCase(),
+        providerName: Provider.LOCAL,
+        deletedAt: null,
+      },
+      include: { picture: { select: { id: true, path: true } } },
+    });
+  }
+
   getUserByEmail(email: string) {
     return this._user.model.user.findFirst({
       where: {

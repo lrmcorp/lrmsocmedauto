@@ -1,7 +1,7 @@
 services:
   app:
     env_file: !override ["${CI_ENV_FILE:?CI_ENV_FILE is required}"]
-    command: [bash, -c, 'pnpm exec prisma db push --schema /app/libraries/nestjs-libraries/src/database/prisma/schema.prisma && exec bash /app/deploy/start.sh']
+    command: [bash, -c, 'node /app/deploy/migrate.cjs && pnpm exec prisma db push --schema /app/libraries/nestjs-libraries/src/database/prisma/schema.prisma && exec bash /app/deploy/start.sh']
     environment:
       DATABASE_URL: postgresql://lrmsosmed:${POSTGRES_PASSWORD}@postgres:5432/lrmsosmed_ci
       LRM_SMOKE_TEST: 'true'

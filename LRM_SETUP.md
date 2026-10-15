@@ -43,12 +43,11 @@ frontend.
    docker compose --env-file .env.lrm -f docker-compose.yaml -f docker-compose.lrm.yaml ps
    ```
 
-4. Check `https://your-host/auth/login`, create the first user, and connect
-   accounts from **Add Channel**. Verify an Instagram post in the calendar
-   before using scheduled publishing. New registrations are disabled after
-   the first organization is created. Keep the VPS, database, and uploads
-   backed up. Add LRM Corporation's own terms and privacy pages before opening
-   registration to others.
+4. Provision the owner privately through the VPS administrator helper described
+   in [OWNER_SETUP_ID.md](docs/OWNER_SETUP_ID.md), then sign in with username and
+   password. Public signup is disabled, including the first account. Connect
+   channels through **Add Channel** and verify publishing before relying on the
+   scheduler. Keep database and uploads backed up.
 
 The callback URLs are based on `PUBLIC_URL`:
 
@@ -74,8 +73,8 @@ it keeps Temporal's private container traffic off the runner's outbound proxy.
 Set `DATABASE_URL`, `REDIS_URL`, `TEMPORAL_ADDRESS`, `JWT_SECRET`, `FRONTEND_URL`,
 and `NEXT_PUBLIC_BACKEND_URL` in the ignored `.env` file using `.env.example`
 as the reference. For local HTTP development, set `NOT_SECURED=true`; omit this
-setting on the VPS with HTTPS. Set `DISABLE_REGISTRATION=true` to allow the first
-organization and prevent further public registrations. Set
+setting on the VPS with HTTPS. Public registration is always disabled. Provision the owner privately;
+`DISABLE_REGISTRATION` cannot reopen public signup. Set
 `NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY=/uploads` and `UPLOAD_DIRECTORY` to an
 ignored local directory such as `/workspace/lrmsocmedauto/.uploads`.
 Run `pnpm install --frozen-lockfile`, `pnpm run prisma-db-push`,
@@ -98,8 +97,8 @@ response with `{"status":"ok"}` verifies its connection to the Temporal namespac
 The cloud instance completed a frozen dependency installation, Prisma client
 generation, database setup, and production builds of the frontend, backend, and
 scheduling worker. Local functional checks passed for the restricted channel
-catalog, first-user registration, valid and invalid login, closing subsequent
-registration, authenticated calendar APIs, and media upload and download. Login,
+catalog, private owner provisioning, username login, registration rejection,
+authenticated calendar APIs, and media upload and download. Login,
 calendar, and media pages rendered with LRM branding. Two disposable account
 records per network were returned independently by the account API; all test
 users, account records, and media were removed afterward.

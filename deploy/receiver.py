@@ -200,7 +200,7 @@ def pull_registry(tag, digest):
         print('Registry image downloaded and verified. Starting project deployment.', flush=True)
 
 
-def deploy(tag, upload, digest=None):
+def deploy(tag, upload, digest=None, migrate=True):
     current = read_current()
     if digest:
         pull_registry(tag, digest)
@@ -215,9 +215,13 @@ def deploy(tag, upload, digest=None):
         if current:
             compose(current, 'stop', '-t', '30', 'app')
             backup(current)
-        # No --accept-data-loss, --force-reset, down -v, or global Docker restarts.
-        compose(tag, 'run', '--rm', '--no-deps', 'app', 'pnpm', 'exec', 'prisma', 'db', 'push',
-                '--schema', '/app/libraries/nestjs-libraries/src/database/prisma/schema.prisma')
+        # Backups precede additive migrations. Rollback only changes the image.
+        if migrate:
+            compose(tag, 'run', '--rm', '--no-deps', 'app', 'bash', '-c',
+                    'if [ -f /app/deploy/migrate.cjs ]; then node /app/deploy/migrate.cjs; fi')
+            # No --accept-data-loss, --force-reset, down -v, or global restarts.
+            compose(tag, 'run', '--rm', '--no-deps', 'app', 'pnpm', 'exec', 'prisma', 'db', 'push',
+                    '--schema', '/app/libraries/nestjs-libraries/src/database/prisma/schema.prisma')
         compose(tag, 'up', '-d', '--no-deps', 'app')
         if not healthy(tag):
             raise RuntimeError('New application failed readiness checks')
@@ -256,7 +260,7 @@ def main():
         elif registry:
             deploy(registry[1], upload=False, digest=registry[2])
         else:
-            deploy(match[2], upload=match[1] == 'deploy')
+            deploy(match[2], upload=match[1] == 'deploy', migrate=match[1] != 'rollback')
 
 
 if __name__ == '__main__':

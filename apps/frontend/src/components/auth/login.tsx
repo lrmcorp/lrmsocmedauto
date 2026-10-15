@@ -1,132 +1,89 @@
 'use client';
 
-import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
-import Link from 'next/link';
 import { Button } from '@gitroom/react/form/button';
 import { Input } from '@gitroom/react/form/input';
 import { useMemo, useState } from 'react';
 import { classValidatorResolver } from '@hookform/resolvers/class-validator';
 import { LoginUserDto } from '@gitroom/nestjs-libraries/dtos/auth/login.user.dto';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+
 type Inputs = {
-  email: string;
+  username: string;
   password: string;
   providerToken: '';
   provider: 'LOCAL';
 };
+
 export function Login() {
   const t = useT();
   const [loading, setLoading] = useState(false);
-  const [notActivated, setNotActivated] = useState(false);
-  const resolver = useMemo(() => {
-    return classValidatorResolver(LoginUserDto);
-  }, []);
+  const resolver = useMemo(() => classValidatorResolver(LoginUserDto), []);
   const form = useForm<Inputs>({
     resolver,
-    defaultValues: {
-      providerToken: '',
-      provider: 'LOCAL',
-    },
+    defaultValues: { providerToken: '', provider: 'LOCAL' },
   });
   const fetchData = useFetch();
-  const onSubmit: SubmitHandler<Inputs> = async (data) => {
+  const submit = async (data: Inputs) => {
     setLoading(true);
-    setNotActivated(false);
-    const login = await fetchData('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...data,
-        provider: 'LOCAL',
-      }),
-    });
-    if (login.status === 400) {
-      const errorMessage = await login.text();
-      if (errorMessage === 'User is not activated') {
-        setNotActivated(true);
-      } else {
-        form.setError('email', {
-          message: errorMessage,
+    try {
+      const response = await fetchData('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...data,
+          username: data.username.trim(),
+          provider: 'LOCAL',
+          providerToken: '',
+        }),
+      });
+      if (!response.ok)
+        form.setError('username', {
+          message:
+            response.status === 400
+              ? await response.text()
+              : 'Unable to sign in. Please try again.',
         });
-      }
+    } catch {
+      form.setError('username', {
+        message: 'Unable to connect. Please try again.',
+      });
+    } finally {
       setLoading(false);
     }
   };
   return (
     <FormProvider {...form}>
-      <form className="flex-1 flex" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="flex-1 flex" onSubmit={form.handleSubmit(submit)}>
         <div className="flex flex-col flex-1">
-          <div>
-            <h1 className="text-[40px] font-[500] -tracking-[0.8px] text-start cursor-pointer">
-              {t('sign_in', 'Sign In')}
-            </h1>
-          </div>
+          <h1 className="text-[30px] font-[500]">{t('sign_in', 'Sign In')}</h1>
           <p className="mt-3 mb-7 text-sm text-textItemBlur">
-            Sign in with your internal LRM account.
+            Sign in with your username and password.
           </p>
-          <div className="flex flex-col">
-            <div className="flex flex-col gap-[12px]">
-              <div className="text-textColor">
-                <Input
-                  label="Email"
-                  translationKey="label_email"
-                  {...form.register('email')}
-                  type="email"
-                  autoComplete="username"
-                  placeholder={t('email_address', 'Email Address')}
-                />
-                <Input
-                  label="Password"
-                  translationKey="label_password"
-                  {...form.register('password')}
-                  autoComplete="current-password"
-                  type="password"
-                  placeholder={t('label_password', 'Password')}
-                />
-              </div>
-              {notActivated && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-[10px] p-4 mb-4">
-                  <p className="text-amber-400 text-sm mb-2">
-                    {t(
-                      'account_not_activated',
-                      'Your account is not activated yet. Please check your email for the activation link.'
-                    )}
-                  </p>
-                  <Link
-                    href="/auth/activate"
-                    className="text-amber-400 underline hover:font-bold text-sm"
-                  >
-                    {t('resend_activation_email', 'Resend Activation Email')}
-                  </Link>
-                </div>
-              )}
-              <div className="text-center mt-6">
-                <div className="w-full flex">
-                  <Button
-                    type="submit"
-                    className="flex-1 rounded-[10px] !h-[52px]"
-                    loading={loading}
-                  >
-                    {t('sign_in_1', 'Sign in')}
-                  </Button>
-                </div>
-                <p className="mt-4 text-sm">
-                  {t('don_t_have_an_account', "Don't Have An Account?")}&nbsp;
-                  <Link href="/auth" className="underline cursor-pointer">
-                    {t('sign_up', 'Sign Up')}
-                  </Link>
-                </p>
-                <p className="mt-4 text-sm">
-                  <Link
-                    href="/auth/forgot"
-                    className="underline hover:font-bold cursor-pointer"
-                  >
-                    {t('forgot_password', 'Forgot password')}
-                  </Link>
-                </p>
-              </div>
-            </div>
-          </div>
+          <Input
+            label="Username"
+            {...form.register('username')}
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="Username"
+          />
+          <Input
+            label="Password"
+            translationKey="label_password"
+            {...form.register('password')}
+            autoComplete="current-password"
+            type="password"
+            placeholder={t('label_password', 'Password')}
+          />
+          <Button
+            type="submit"
+            className="w-full !h-[52px] mt-4"
+            loading={loading}
+          >
+            {t('sign_in_1', 'Sign in')}
+          </Button>
         </div>
       </form>
     </FormProvider>

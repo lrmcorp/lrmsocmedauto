@@ -184,8 +184,9 @@ Di VPS, untuk melihat layanan proyek tanpa mencetak Secrets:
 sudo /usr/local/sbin/lrmsosmed-receiver status
 ```
 
-Stack tidak membuka registrasi umum setelah organisasi pertama. Buat akun awal
-Anda, lalu masukkan kredensial Meta/TikTok ke konfigurasi privat VPS sebelum
+Stack tidak menyediakan signup publik, termasuk untuk akun pertama. Buat akun
+owner melalui `deploy/provision-owner.py` pada terminal administrator VPS
+(lihat `docs/OWNER_SETUP_ID.md`), lalu masukkan kredensial Meta/TikTok sebelum
 menghubungkan akun Instagram, TikTok, atau Threads. Penerbitan sungguhan dan
 analytics belum dianggap teruji hanya karena health check berhasil.
 

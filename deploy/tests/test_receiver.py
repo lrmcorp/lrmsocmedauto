@@ -19,6 +19,18 @@ bootstrap_spec.loader.exec_module(bootstrap)
 
 
 class ReceiverTests(unittest.TestCase):
+    def test_image_rollback_never_synchronizes_an_older_database_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            current, previous = 'a' * 40, 'b' * 40
+            (root / 'current-tag').write_text(current + '\n')
+            events = []
+            with patch.object(receiver, 'ROOT', root), patch.object(receiver, 'run', return_value='sha256:image'), patch.object(receiver, 'compose', side_effect=lambda tag, *args, **kwargs: events.append(args)), patch.object(receiver, 'backup'), patch.object(receiver, 'healthy', return_value=True):
+                receiver.deploy(previous, upload=False, migrate=False)
+            self.assertFalse(any(args[0] == 'run' for args in events))
+            self.assertIn(('up', '-d', '--no-deps', 'app'), events)
+            self.assertEqual((root / 'current-tag').read_text().strip(), previous)
+
     def registry_pull(self, directory, *, wrong_source=False, timeout=False):
         root = Path(directory)
         (root / 'incoming').mkdir()

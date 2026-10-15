@@ -1,6 +1,7 @@
 import {
   IsDefined,
-  IsEmail,
+  Matches,
+  MaxLength,
   IsString,
   MinLength,
   ValidateIf,
@@ -23,9 +24,12 @@ export class LoginUserDto {
   @ValidateIf((o) => !o.password)
   providerToken: string;
 
-  @IsEmail()
+  @IsString()
   @IsDefined()
-  email: string;
+  @MinLength(3)
+  @MaxLength(32)
+  @Matches(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/)
+  username: string;
 
   datafast_visitor_id: string;
 }
