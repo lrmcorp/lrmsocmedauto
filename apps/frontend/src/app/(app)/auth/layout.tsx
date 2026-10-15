@@ -1,5 +1,3 @@
-import { getT } from '@gitroom/react/translation/get.translation.service.backend';
-
 export const dynamic = 'force-dynamic';
 import { ReactNode } from 'react';
 import loadDynamic from 'next/dynamic';
@@ -7,36 +5,56 @@ import { LogoTextComponent } from '@gitroom/frontend/components/ui/logo-text.com
 import { MantineWrapper } from '@gitroom/react/helpers/mantine.wrapper';
 import { Toaster } from '@gitroom/react/toaster/toaster';
 const ReturnUrlComponent = loadDynamic(() => import('./return.url.component'));
-export default async function AuthLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const t = await getT();
 
+export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <MantineWrapper>
       <Toaster />
-      <div className="bg-[#0E0E0E] flex flex-1 p-[12px] gap-[12px] min-h-screen w-screen text-white">
-        {/*<style>{`html, body {overflow-x: hidden;}`}</style>*/}
-        <ReturnUrlComponent />
-        <div className="flex flex-col py-[40px] px-[20px] flex-1 lg:w-[600px] lg:flex-none rounded-[12px] text-white p-[12px] bg-[#1A1919]">
-          <div className="w-full max-w-[440px] mx-auto justify-center gap-[20px] h-full flex flex-col text-white">
-            <LogoTextComponent />
-            <div className="flex">{children}</div>
-          </div>
-        </div>
-        <div className="text-[36px] flex-1 pt-[88px] hidden lg:flex flex-col items-center">
-          <div className="text-center">
-            Plan once. Publish across your
+      <ReturnUrlComponent />
+      <main className="lrm-auth">
+        <section className="lrm-auth-panel" aria-label="Account access">
+          <LogoTextComponent />
+          <div className="lrm-auth-form">{children}</div>
+          <p className="lrm-auth-footer">LRM Corporation · Social Studio</p>
+        </section>
+        <aside className="lrm-auth-story" aria-label="Your social workspace">
+          <span className="lrm-eyebrow">YOUR SOCIAL WORKSPACE</span>
+          <h2>
+            More accounts.
             <br />
-            <span className="text-[#FC69FF]">
-              Instagram, TikTok, and Threads
-            </span>{' '}
-            accounts.
+            <span>One clear view.</span>
+          </h2>
+          <p>A simpler place to plan, organize, and publish your content.</p>
+          <div className="lrm-network-pills" aria-label="Supported networks">
+            <span>Instagram</span>
+            <span>TikTok</span>
+            <span>Threads</span>
           </div>
-        </div>
-      </div>
+          <div className="lrm-feature-list">
+            <div>
+              <span>01</span>
+              <section>
+                <h3>Plan your next post</h3>
+                <p>Keep your content calendar in one place.</p>
+              </section>
+            </div>
+            <div>
+              <span>02</span>
+              <section>
+                <h3>Keep accounts organized</h3>
+                <p>Switch between the brands you manage.</p>
+              </section>
+            </div>
+            <div>
+              <span>03</span>
+              <section>
+                <h3>Publish on your schedule</h3>
+                <p>Prepare content when it works for you.</p>
+              </section>
+            </div>
+          </div>
+        </aside>
+      </main>
     </MantineWrapper>
   );
 }

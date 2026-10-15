@@ -52,17 +52,17 @@ export const Input: FC<
   return (
     <div className="flex flex-col gap-[6px]">
       {!!label && (
-        <div className={`text-[14px]`}>
+        <label htmlFor={props.id || props.name} className="text-[14px]">
           <TranslatedLabel
             label={label}
             translationKey={translationKey}
             translationParams={translationParams}
           />
-        </div>
+        </label>
       )}
       <div
         className={clsx(
-          'bg-newBgColorInner h-[42px] border-newTableBorder border rounded-[8px] text-textColor placeholder-textColor flex items-center justify-center',
+          'lrm-field bg-newBgColorInner h-[42px] border-newTableBorder border rounded-[8px] text-textColor placeholder-textColor flex items-center justify-center',
           className
         )}
       >
@@ -74,10 +74,23 @@ export const Input: FC<
           )}
           {...(disableForm ? {} : form.register(props.name))}
           {...rest}
+          id={props.id || props.name}
+          aria-invalid={!!err || undefined}
+          aria-describedby={
+            err && !removeError
+              ? `${props.id || props.name}-error`
+              : rest['aria-describedby']
+          }
         />
       </div>
       {!removeError && (
-        <div className="text-red-400 text-[12px]">{err || <>&nbsp;</>}</div>
+        <div
+          id={`${props.id || props.name}-error`}
+          role={err ? 'alert' : undefined}
+          className="text-red-400 text-[12px]"
+        >
+          {err || <>&nbsp;</>}
+        </div>
       )}
     </div>
   );

@@ -44,8 +44,11 @@ export const Button: FC<
     <button
       {...props}
       type={props.type || 'button'}
+      disabled={props.disabled || loading}
+      aria-busy={loading || undefined}
       ref={ref}
       className={clsx(
+        'lrm-button',
         (props.disabled || loading) && 'opacity-50 pointer-events-none',
         `${
           secondary ? 'bg-third' : 'bg-forth text-white'
