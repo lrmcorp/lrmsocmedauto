@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { InternalAuthGuard } from '@gitroom/backend/services/auth/internal-auth.guard';
 import { Throttle } from '@nestjs/throttler';
 import { ThrottlerRealIpGuard } from '@gitroom/nestjs-libraries/throttler/throttler.provider';
 import { Response, Request } from 'express';
@@ -31,6 +32,7 @@ import { FarcasterProvider } from '@gitroom/nestjs-libraries/integrations/social
 
 @ApiTags('Auth')
 @Controller('/auth')
+@UseGuards(InternalAuthGuard)
 export class AuthController {
   constructor(
     private _authService: AuthService,

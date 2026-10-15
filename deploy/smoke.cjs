@@ -23,6 +23,21 @@ async function json(url, options = {}) {
   passed.push('restricted channel catalog');
   assert.deepEqual(await json(`${base}/healthz`), { status: 'ok' });
   passed.push('worker and Temporal readiness');
+  for (const provider of ['GOOGLE', 'GITHUB', 'APPLE', 'GENERIC', 'FARCASTER', 'WALLET']) {
+    const oauth = await fetch(`${api}/auth/oauth/${provider}`);
+    assert.equal(oauth.status, 403, `External login must be disabled: ${provider}`);
+    const externalRegister = await fetch(`${api}/auth/register`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider }),
+    });
+    assert.equal(externalRegister.status, 403);
+  }
+  const tokenLogin = await fetch(`${api}/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'LOCAL', providerToken: 'not-a-real-token' }),
+  });
+  assert.equal(tokenLogin.status, 403);
+  passed.push('internal email/password authentication only');
   assert.equal((await json(`${api}/auth/can-register`)).register, true);
   const email = `lrmsosmed-smoke-${randomUUID()}@example.invalid`;
   const password = randomBytes(24).toString('hex');
